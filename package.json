@@ -93,5 +93,10 @@
         "typescript-eslint": "^8.4.0",
         "yargs": "^17.7.2",
         "zksync-ethers": "6.12.1"
+    },
+    "dependencies": {
+        "-": "^0.0.1",
+        "g": "^2.0.1",
+        "yarn": "^1.22.22"
     }
 }
