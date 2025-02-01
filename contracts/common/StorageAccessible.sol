@@ -9,14 +9,15 @@ pragma solidity >=0.7.0 <0.9.0;
  */
 abstract contract StorageAccessible {
     /**
-     * @notice Reads `length` bytes of storage in the currents contract
+     * @notice Reads `length` bytes of storage in the current contract
      * @param offset - the offset in the current contract's storage in words to start reading from
      * @param length - the number of words (32 bytes) of data to read
      * @return the bytes that were read.
      */
     function getStorageAt(uint256 offset, uint256 length) public view returns (bytes memory) {
-        bytes memory result = new bytes(length * 32);
-        for (uint256 index = 0; index < length; index++) {
+        // We use `<< 5` instead of `* 32` as SHR / SHL opcode only uses 3 gas, while DIV / MUL opcode uses 5 gas.
+        bytes memory result = new bytes(length << 5);
+        for (uint256 index = 0; index < length; ++index) {
             /* solhint-disable no-inline-assembly */
             /// @solidity memory-safe-assembly
             assembly {

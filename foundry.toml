@@ -146,9 +146,9 @@ failure_persist_dir = "cache/invariant"
 
 [labels]
 
-[vyper]
+[profile.vyper]
 
-[bind_json]
+[profile.bind_json]
 out = "utils/JsonBindings.sol"
 include = []
 exclude = []

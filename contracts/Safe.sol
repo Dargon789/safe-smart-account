@@ -28,7 +28,7 @@ import {Enum} from "./libraries/Enum.sol";
  *          1. Transaction Guard: managed in `GuardManager` for transactions executed with `execTransaction`.
  *          2. Module Guard: managed in `ModuleManager` for transactions executed with `execTransactionFromModule`
  *      - Modules: Modules are contracts that can be used to extend the write functionality of a Safe. Managed in `ModuleManager`.
- *      - Fallback: Fallback handler is a contract that can provide additional read-only functional for Safe. Managed in `FallbackManager`.
+ *      - Fallback: Fallback handler is a contract that can provide additional functionality for Safe. Managed in `FallbackManager`. Please read the security risks in the `IFallbackManager` interface.
  *      Note: This version of the implementation contract doesn't emit events for the sake of gas efficiency and therefore requires a tracing node for indexing/
  *      For the events-based implementation see `SafeL2.sol`.
  * @author Stefan George - @Georgi87
@@ -49,7 +49,7 @@ contract Safe is
 {
     using SafeMath for uint256;
 
-    string public constant override VERSION = "1.4.1";
+    string public constant override VERSION = "1.5.0";
 
     // keccak256(
     //     "EIP712Domain(uint256 chainId,address verifyingContract)"
@@ -91,14 +91,14 @@ contract Safe is
         uint256 payment,
         address payable paymentReceiver
     ) external override {
-        // setupOwners checks if the Threshold is already set, therefore preventing that this method is called twice
+        // setupOwners checks if the Threshold is already set, therefore preventing this method from being called more than once
         setupOwners(_owners, _threshold);
         if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
         // As setupOwners can only be called if the contract has not been initialized we don't need a check for setupModules
         setupModules(to, data);
 
         if (payment > 0) {
-            // To avoid running into issues with EIP-170 we reuse the handlePayment function (to avoid adjusting code of that has been verified we do not adjust the method itself)
+            // To avoid running into issues with EIP-170 we reuse the handlePayment function (to avoid adjusting code that has been verified we do not adjust the method itself)
             // baseGas = 0, gasPrice = 1 and gas = payment => amount = (payment + 0) * 1 = payment
             handlePayment(payment, 0, 1, paymentToken, paymentReceiver);
         }
@@ -139,7 +139,7 @@ contract Safe is
                 // We use the post-increment here, so the current nonce value is used and incremented afterwards.
                 nonce++
             );
-            checkSignatures(txHash, signatures);
+            checkSignatures(msg.sender, txHash, signatures);
         }
         address guard = getGuard();
         {
@@ -164,8 +164,9 @@ contract Safe is
         }
 
         // We require some gas to emit the events (at least 2500) after the execution and some to perform code until the execution (500)
-        // We also include the 1/64 in the check that is not send along with a call to counteract potential shortings because of EIP-150
-        if (gasleft() < ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 500) revertWithError("GS010");
+        // We also include the 1/64 in the check that is not sent along with a call to counteract potential shortings because of EIP-150
+        // We use `<< 6` instead of `* 64` as SHR / SHL opcode only uses 3 gas, while DIV / MUL opcode uses 5 gas.
+        if (gasleft() < ((safeTxGas << 6) / 63).max(safeTxGas + 2500) + 500) revertWithError("GS010");
         // Use scope here to limit variable lifetime and prevent `stack too deep` errors
         {
             uint256 gasUsed = gasleft();
@@ -179,9 +180,9 @@ contract Safe is
                 /* solhint-disable no-inline-assembly */
                 /// @solidity memory-safe-assembly
                 assembly {
-                    let p := mload(0x40)
-                    returndatacopy(p, 0, returndatasize())
-                    revert(p, returndatasize())
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0, returndatasize())
+                    revert(ptr, returndatasize())
                 }
                 /* solhint-enable no-inline-assembly */
             }
@@ -267,12 +268,12 @@ contract Safe is
     /**
      * @inheritdoc ISafe
      */
-    function checkSignatures(bytes32 dataHash, bytes memory signatures) public view override {
+    function checkSignatures(address executor, bytes32 dataHash, bytes memory signatures) public view override {
         // Load threshold to avoid multiple storage loads
         uint256 _threshold = threshold;
         // Check that a threshold is set
         if (_threshold == 0) revertWithError("GS001");
-        checkNSignatures(msg.sender, dataHash, signatures, _threshold);
+        checkNSignatures(executor, dataHash, signatures, _threshold);
     }
 
     /**
@@ -291,9 +292,13 @@ contract Safe is
         address currentOwner;
         uint256 v; // Implicit conversion from uint8 to uint256 will be done for v received from signatureSplit(...).
         bytes32 r;
+        // NOTE: We do not enforce the `s` to be from the lower half of the curve
+        // This essentially means that for every signature, there's another valid signature (known as ECDSA malleability)
+        // Since we have other mechanisms to prevent duplicated signatures (ordered owners array) and replay protection (nonce),
+        // we can safely ignore this malleability.
         bytes32 s;
         uint256 i;
-        for (i = 0; i < requiredSignatures; i++) {
+        for (i = 0; i < requiredSignatures; ++i) {
             (v, r, s) = signatureSplit(signatures, i);
             if (v == 0) {
                 // If v is 0 then it is a contract signature
@@ -301,7 +306,7 @@ contract Safe is
                 currentOwner = address(uint160(uint256(r)));
 
                 // Check that signature data pointer (s) is not pointing inside the static part of the signatures bytes
-                // This check is not completely accurate, since it is possible that more signatures than the threshold are send.
+                // This check is not completely accurate, since it is possible that more signatures than the threshold are sent.
                 // Here we only check that the pointer is not pointing inside the part that is being processed
                 if (uint256(s) < requiredSignatures.mul(65)) revertWithError("GS021");
 
@@ -335,7 +340,8 @@ contract Safe is
      * @notice Checks whether the signature provided is valid for the provided hash. Reverts otherwise.
      *         The `data` parameter is completely ignored during signature verification.
      * @dev This function is provided for compatibility with previous versions.
-     *      Use `checkSignatures(bytes32,bytes)` instead.
+     *      Use `checkSignatures(address,bytes32,bytes)` instead.
+     *      ⚠️⚠️⚠️ If the caller is an owner of the Safe, it can trivially sign any hash with a pre-approve signature and may reduce the threshold of the signature by 1. ⚠️⚠️⚠️
      * @param dataHash Hash of the data (could be either a message hash or transaction hash).
      * @param data **IGNORED** The data pre-image.
      * @param signatures Signature data that should be verified.
@@ -343,7 +349,7 @@ contract Safe is
      */
     function checkSignatures(bytes32 dataHash, bytes calldata data, bytes memory signatures) external view {
         data;
-        checkSignatures(dataHash, signatures);
+        checkSignatures(msg.sender, dataHash, signatures);
     }
 
     /**
@@ -351,6 +357,7 @@ contract Safe is
      *         The `data` parameter is completely ignored during signature verification.
      * @dev This function is provided for compatibility with previous versions.
      *      Use `checkNSignatures(address,bytes32,bytes,uint256)` instead.
+     *      ⚠️⚠️⚠️ If the caller is an owner of the Safe, it can trivially sign any hash with a pre-approve signature and may reduce the threshold of the signature by 1. ⚠️⚠️⚠️
      * @param dataHash Hash of the data (could be either a message hash or transaction hash)
      * @param data **IGNORED** The data pre-image.
      * @param signatures Signature data that should be verified.
@@ -387,50 +394,6 @@ contract Safe is
     }
 
     /**
-     * @notice Returns the pre-image of the transaction hash (see getTransactionHash).
-     * @param to Destination address.
-     * @param value Ether value.
-     * @param data Data payload.
-     * @param operation Operation type.
-     * @param safeTxGas Gas that should be used for the safe transaction.
-     * @param baseGas Gas costs for that are independent of the transaction execution(e.g. base transaction fee, signature check, payment of the refund)
-     * @param gasPrice Maximum gas price that should be used for this transaction.
-     * @param gasToken Token address (or 0 if ETH) that is used for the payment.
-     * @param refundReceiver Address of receiver of gas payment (or 0 if tx.origin).
-     * @param _nonce Transaction nonce.
-     * @return Transaction hash bytes.
-     */
-    function encodeTransactionData(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Enum.Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address refundReceiver,
-        uint256 _nonce
-    ) private view returns (bytes memory) {
-        bytes32 safeTxStructHash = keccak256(
-            abi.encode(
-                SAFE_TX_TYPEHASH,
-                to,
-                value,
-                keccak256(data),
-                operation,
-                safeTxGas,
-                baseGas,
-                gasPrice,
-                gasToken,
-                refundReceiver,
-                _nonce
-            )
-        );
-        return abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), safeTxStructHash);
-    }
-
-    /**
      * @inheritdoc ISafe
      */
     function getTransactionHash(
@@ -444,8 +407,64 @@ contract Safe is
         address gasToken,
         address refundReceiver,
         uint256 _nonce
-    ) public view override returns (bytes32) {
-        return keccak256(encodeTransactionData(to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, _nonce));
+    ) public view override returns (bytes32 txHash) {
+        bytes32 domainHash = domainSeparator();
+
+        // We opted for using assembly code here, because the way Solidity compiler we use (0.7.6) allocates memory is
+        // inefficient. We do not need to allocate memory for temporary variables to be used in the keccak256 call.
+        //
+        // WARNING: We do not clean potential dirty bits in types that are less than 256 bits (addresses and Enum.Operation)
+        // The solidity assembly types that are smaller than 256 bit can have dirty high bits according to the spec (see the Warning in https://docs.soliditylang.org/en/latest/assembly.html#access-to-external-variables-functions-and-libraries).
+        // However, we read most of the data from calldata, where the variables are not packed, and the only variable we read from storage is uint256 nonce.
+        // This is not a problem, however, we must consider this for potential future changes.
+        /* solhint-disable no-inline-assembly */
+        /// @solidity memory-safe-assembly
+        assembly {
+            // Get the free memory pointer
+            let ptr := mload(0x40)
+
+            // Step 1: Hash the transaction data
+            // Copy transaction data to memory and hash it
+            calldatacopy(ptr, data.offset, data.length)
+            let calldataHash := keccak256(ptr, data.length)
+
+            // Step 2: Prepare the SafeTX struct for hashing
+            // Layout in memory:
+            // ptr +   0: SAFE_TX_TYPEHASH (constant defining the struct hash)
+            // ptr +  32: to address
+            // ptr +  64: value
+            // ptr +  96: calldataHash
+            // ptr + 128: operation
+            // ptr + 160: safeTxGas
+            // ptr + 192: baseGas
+            // ptr + 224: gasPrice
+            // ptr + 256: gasToken
+            // ptr + 288: refundReceiver
+            // ptr + 320: nonce
+            mstore(ptr, SAFE_TX_TYPEHASH)
+            mstore(add(ptr, 32), to)
+            mstore(add(ptr, 64), value)
+            mstore(add(ptr, 96), calldataHash)
+            mstore(add(ptr, 128), operation)
+            mstore(add(ptr, 160), safeTxGas)
+            mstore(add(ptr, 192), baseGas)
+            mstore(add(ptr, 224), gasPrice)
+            mstore(add(ptr, 256), gasToken)
+            mstore(add(ptr, 288), refundReceiver)
+            mstore(add(ptr, 320), _nonce)
+
+            // Step 3: Calculate the final EIP-712 hash
+            // First, hash the SafeTX struct (352 bytes total length)
+            mstore(add(ptr, 64), keccak256(ptr, 352))
+            // Store the EIP-712 prefix (0x1901), note that integers are left-padded
+            // so the EIP-712 encoded data starts at add(ptr, 30)
+            mstore(ptr, 0x1901)
+            // Store the domain separator
+            mstore(add(ptr, 32), domainHash)
+            // Calculate the hash
+            txHash := keccak256(add(ptr, 30), 66)
+        }
+        /* solhint-enable no-inline-assembly */
     }
 
     /**

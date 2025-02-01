@@ -89,8 +89,10 @@ const userConfig: HardhatUserConfig = {
         compilers: [{ version: primarySolidityVersion, settings: soliditySettings }, { version: defaultSolidityVersion }],
     },
     zksolc: {
-        version: "1.5.3",
-        settings: {},
+        version: "1.5.9",
+        settings: {
+            suppressedErrors: ["assemblycreate"],
+        },
     },
     networks: {
         hardhat: {
@@ -166,6 +168,7 @@ if (NODE_URL) {
     userConfig.networks!.custom = {
         ...sharedNetworkConfig,
         url: NODE_URL,
+        zksync: HARDHAT_ENABLE_ZKSYNC === "1",
     };
 }
 export default userConfig;

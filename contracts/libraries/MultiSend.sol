@@ -30,6 +30,7 @@ contract MultiSend {
     function multiSend(bytes memory transactions) public payable {
         require(address(this) != MULTISEND_SINGLETON, "MultiSend should only be called via delegatecall");
         /* solhint-disable no-inline-assembly */
+        /// @solidity memory-safe-assembly
         assembly {
             let length := mload(transactions)
             let i := 0x20
@@ -39,7 +40,7 @@ contract MultiSend {
                 // Post block is not used in "while mode"
             } {
                 // First byte of the data is the operation.
-                // We shift by 248 bits (256 - 8 [operation byte]) it right since mload will always load 32 bytes (a word).
+                // We shift by 248 bits (256 - 8 [operation byte]) right, since mload will always load 32 bytes (a word).
                 // This will also zero out unused data.
                 let operation := shr(0xf8, mload(add(transactions, i)))
                 // We offset the load address by 1 byte (operation byte)
@@ -61,9 +62,10 @@ contract MultiSend {
                 case 1 {
                     success := delegatecall(gas(), to, data, dataLength, 0, 0)
                 }
-                if eq(success, 0) {
-                    returndatacopy(0, 0, returndatasize())
-                    revert(0, returndatasize())
+                if iszero(success) {
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0, returndatasize())
+                    revert(ptr, returndatasize())
                 }
                 // Next entry starts at 85 byte + data length
                 i := add(i, add(0x55, dataLength))

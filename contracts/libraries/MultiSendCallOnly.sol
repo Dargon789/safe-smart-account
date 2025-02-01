@@ -17,13 +17,14 @@ contract MultiSendCallOnly {
      *                     data length as a uint256 (=> 32 bytes),
      *                     data as bytes.
      *                     see abi.encodePacked for more information on packed encoding
-     * @notice The code is for most part the same as the normal MultiSend (to keep compatibility),
+     * @notice The code is for the most part the same as the normal MultiSend (to keep compatibility),
      *         but reverts if a transaction tries to use a delegatecall.
      * @notice This method is payable as delegatecalls keep the msg.value from the previous call
      *         If the calling method (e.g. execTransaction) received ETH this would revert otherwise
      */
     function multiSend(bytes memory transactions) public payable {
         /* solhint-disable no-inline-assembly */
+        /// @solidity memory-safe-assembly
         assembly {
             let length := mload(transactions)
             let i := 0x20
@@ -56,9 +57,10 @@ contract MultiSendCallOnly {
                 case 1 {
                     revert(0, 0)
                 }
-                if eq(success, 0) {
-                    returndatacopy(0, 0, returndatasize())
-                    revert(0, returndatasize())
+                if iszero(success) {
+                    let ptr := mload(0x40)
+                    returndatacopy(ptr, 0, returndatasize())
+                    revert(ptr, returndatasize())
                 }
                 // Next entry starts at 85 byte + data length
                 i := add(i, add(0x55, dataLength))

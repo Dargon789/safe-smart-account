@@ -10,6 +10,7 @@ import {SafeProxy} from "./SafeProxy.sol";
  */
 contract SafeProxyFactory {
     event ProxyCreation(SafeProxy indexed proxy, address singleton);
+    event ProxyCreationL2(SafeProxy indexed proxy, address singleton, bytes initializer, uint256 saltNonce);
 
     /// @dev Allows to retrieve the creation code used for the Proxy deployment. With this it is easily possible to calculate predicted address.
     function proxyCreationCode() public pure returns (bytes memory) {
@@ -39,7 +40,7 @@ contract SafeProxyFactory {
             /* solhint-disable no-inline-assembly */
             /// @solidity memory-safe-assembly
             assembly {
-                if eq(call(gas(), proxy, 0, add(initializer, 0x20), mload(initializer), 0, 0), 0) {
+                if iszero(call(gas(), proxy, 0, add(initializer, 0x20), mload(initializer), 0, 0)) {
                     revert(0, 0)
                 }
             }
@@ -54,10 +55,22 @@ contract SafeProxyFactory {
      * @param saltNonce Nonce that will be used to generate the salt to calculate the address of the new proxy contract.
      */
     function createProxyWithNonce(address _singleton, bytes memory initializer, uint256 saltNonce) public returns (SafeProxy proxy) {
-        // If the initializer changes the proxy address should change too. Hashing the initializer data is cheaper than just concatinating it
+        // If the initializer changes the proxy address should change too. Hashing the initializer data is cheaper than just concatenating it
         bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer), saltNonce));
         proxy = deployProxy(_singleton, initializer, salt);
         emit ProxyCreation(proxy, _singleton);
+    }
+
+    /**
+     * @notice Deploys a new proxy with `_singleton` singleton and `saltNonce` salt. Optionally executes an initializer call to a new proxy.
+     * @dev Emits an extra event to allow tracking of `initializer` and `saltNonce`.
+     * @param _singleton Address of singleton contract. Must be deployed at the time of execution.
+     * @param initializer Payload for a message call to be sent to a new proxy contract.
+     * @param saltNonce Nonce that will be used to generate the salt to calculate the address of the new proxy contract.
+     */
+    function createProxyWithNonceL2(address _singleton, bytes memory initializer, uint256 saltNonce) public returns (SafeProxy proxy) {
+        proxy = createProxyWithNonce(_singleton, initializer, saltNonce);
+        emit ProxyCreationL2(proxy, _singleton, initializer, saltNonce);
     }
 
     /**
@@ -99,9 +112,29 @@ contract SafeProxyFactory {
     }
 
     /**
+     * @notice Deploy a new proxy with `_singleton` singleton and `saltNonce` salt.
+     *         Optionally executes an initializer call to a new proxy and calls a specified callback address `callback`.
+     * @dev Emits an extra event to allow tracking of `initializer` and `saltNonce`.
+     * @param _singleton Address of singleton contract. Must be deployed at the time of execution.
+     * @param initializer Payload for a message call to be sent to a new proxy contract.
+     * @param saltNonce Nonce that will be used to generate the salt to calculate the address of the new proxy contract.
+     * @param callback Callback that will be invoked after the new proxy contract has been successfully deployed and initialized.
+     */
+    function createProxyWithCallbackL2(
+        address _singleton,
+        bytes memory initializer,
+        uint256 saltNonce,
+        IProxyCreationCallback callback
+    ) public returns (SafeProxy proxy) {
+        uint256 saltNonceWithCallback = uint256(keccak256(abi.encodePacked(saltNonce, callback)));
+        proxy = createProxyWithNonceL2(_singleton, initializer, saltNonceWithCallback);
+        if (address(callback) != address(0)) callback.proxyCreated(proxy, _singleton, initializer, saltNonce);
+    }
+
+    /**
      * @notice Returns true if `account` is a contract.
      * @dev This function will return false if invoked during the constructor of a contract,
-     *      as the code is not actually created until after the constructor finishes.
+     *      as the code is not created until after the constructor finishes.
      * @param account The address being queried
      * @return True if `account` is a contract
      */
