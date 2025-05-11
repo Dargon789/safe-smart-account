@@ -66,7 +66,7 @@
         "@matterlabs/hardhat-zksync-solc": "^1.3.0",
         "@matterlabs/hardhat-zksync-verify": "^1.8.0",
         "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-        "@openzeppelin/contracts": "^4.9.6",
+        "@openzeppelin/contracts": "^5.3.0",
         "@safe-global/mock-contract": "^4.1.0",
         "@safe-global/safe-singleton-factory": "^1.0.42",
         "@types/chai": "^4.3.19",
