@@ -7,7 +7,7 @@ jobs:
     lint-solidity:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
             - uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
@@ -19,8 +19,8 @@ jobs:
     lint-typescript:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v5
+            - uses: actions/setup-node@v5
               with:
                   node-version: ${{ env.NODE_VERSION }}
                   cache: "npm"
@@ -32,8 +32,8 @@ jobs:
     tests:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v5
+            - uses: actions/setup-node@v5
               with:
                   node-version: ${{ env.NODE_VERSION }}
                   cache: "npm"
@@ -50,8 +50,8 @@ jobs:
         env:
             SAFE_CONTRACT_UNDER_TEST: ${{ matrix.contract-name }}
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v5
+            - uses: actions/setup-node@v5
               with:
                   node-version: ${{ env.NODE_VERSION }}
                   cache: "npm"
@@ -89,8 +89,8 @@ jobs:
             SOLIDITY_VERSION: ${{ matrix.solidity }}
             SOLIDITY_SETTINGS: ${{ matrix.settings }}
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v5
+            - uses: actions/setup-node@v5
               with:
                   node-version: ${{ env.NODE_VERSION }}
                   cache: "npm"
