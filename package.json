@@ -68,7 +68,7 @@
         "@typescript-eslint/eslint-plugin": "^8.35.0",
         "@typescript-eslint/parser": "^8.35.0",
         "debug": "^4.4.1",
-        "dotenv": "^16.5.0",
+        "dotenv": "^17.2.2",
         "eslint": "^9.29.0",
         "eslint-config-prettier": "^10.1.5",
         "eslint-plugin-no-only-tests": "^3.3.0",
