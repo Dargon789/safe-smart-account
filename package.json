@@ -82,7 +82,7 @@
         "solc": "0.8.30",
         "solhint": "^5.1.0",
         "ts-node": "^10.9.2",
-        "typescript": "^5.8.3",
+        "typescript": "^5.9.2",
         "typescript-eslint": "^8.35.0",
         "yargs": "^18.0.0"
     }
