@@ -353,18 +353,19 @@ contract Safe is
                 if (executor != currentOwner && approvedHashes[currentOwner][dataHash] == 0) revertWithError("GS025");
             } else if (v == 2) {
                 // if `v` is 2, then we have a `secp256r1` signature that we verify using the RIP-7212/EIP-7951
-                // precompile. In this case, `r` is the signature `r` value and `s` is a data pointer to the dynamic
-                // part of the signature bytes containing the the signature `s` value followed by the public key
-                // coordinates `qx` and `qy`. Unlike with contract signatures the length of the dynamic part is not
-                // encoded in the `signatures` bytes as it is always 96. Just like for `secp256k1` EOA signatures, we do
-                // not enforce that `s` is on the lower half of the curve (i.e. the signature is malleable).
+                // precompile. In this case, just like for `v = 0` contract signatures, `r` is the address of the owner,
+                // and the signature `r`, `s`, and public key coordinates `qx`, `qy` are pointed to by the data pointer
+                // `s`. This is very similiar to the smart contract signature encoding, but **without** a length, since
+                // that is always fixed to 128 bytes. Just like for `secp256k1` EOA signatures, we do not enforce that
+                // `s` is on the lower half of the curve (i.e. the signature is malleable).
+                currentOwner = address(uint160(uint256(r)));
 
                 // Check that the additional signature data required for `secp256r1` verification is correctly encoded.
                 // That is, the data pointer `s` must be past the "static part" of the signature (just like for contract
-                // signatures), and additionally there must be at least 96 bytes of data containing the public key
-                // coordinates and the actual signature `s` value.
+                // signatures), and additionally there must be at least 128 bytes of data containing the siguature `r`
+                // and `s` values followed by the public key coordinates.
                 if (uint256(s) < requiredSignatures.mul(65)) revertWithError("GS021");
-                if (uint256(s).add(96) > signatures.length) revertWithError("GS027");
+                if (uint256(s).add(128) > signatures.length) revertWithError("GS027");
 
                 // Extract the remaining signature parameters from the dynamic part, we rely on some assembly here in
                 // order to efficiently read the signature verification parameters from memory.
@@ -381,16 +382,13 @@ contract Safe is
                     // Now, read the signature data that we need to call the precompile. Note that we overwrite the `s`
                     // value (which previously held the offset in the `signatures` with the dynamic part, with the
                     // actual ECDSA signature `s` value.
-                    s := mload(sig)
-                    qx := mload(add(sig, 0x20))
-                    qy := mload(add(sig, 0x40))
-
-                    // Just like for regular `secp256k1` (with a **k**) EOAs, we define the address to be the last 20
-                    // bytes of the hash of the public key coordinates.
-                    currentOwner := and(keccak256(add(sig, 0x20), 0x40), 0xffffffffffffffffffffffffffffffffffffffff)
+                    r := mload(sig)
+                    s := mload(add(sig, 0x20))
+                    qx := mload(add(sig, 0x40))
+                    qy := mload(add(sig, 0x60))
                 }
                 /* solhint-enable no-inline-assembly */
-                if (!p256Verify(dataHash, r, s, qx, qy)) revertWithError("GS028");
+                if (currentOwner != p256Verify(dataHash, r, s, qx, qy)) revertWithError("GS028");
             } else if (v > 30) {
                 // If `v > 30` then default `v` (27, 28) has been adjusted to encode an `eth_sign` signature.
                 // To support `eth_sign` and similar we adjust `v` and hash the `dataHash` with the EIP-191 message prefix before applying `ecrecover`.

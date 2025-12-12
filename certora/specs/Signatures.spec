@@ -14,7 +14,7 @@ methods {
     // summaries
     function SignatureDecoder.signatureSplit(bytes memory signatures, uint256 pos) internal returns (uint8,bytes32,bytes32) => signatureSplitGhost(signatures,pos);
     function Safe.checkContractSignature(address, bytes32, bytes memory, uint256) internal => NONDET;
-    function EIP7951.p256Verify(bytes32, bytes32, bytes32, uint256, uint256) internal returns (bool) => CONSTANT;
+    function EIP7951.p256Verify(bytes32, bytes32, bytes32, uint256, uint256) internal returns (address) => CONSTANT;
 
     // needed for the execTransaction <> signatures rule
     function Safe.getTransactionHash(

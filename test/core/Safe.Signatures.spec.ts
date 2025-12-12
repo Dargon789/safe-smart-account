@@ -557,12 +557,13 @@ describe("Safe", () => {
             const dataHash = hre.ethers.id("Fusaka!");
             const signature = p256.sign(hre.ethers.getBytes(dataHash), secretKey, { prehash: false });
             const signatures = hre.ethers.solidityPacked(
-                ["bytes32", "uint256", "uint8", "bytes32", "uint256", "uint256"],
+                ["uint256", "uint256", "uint8", "bytes32", "bytes32", "uint256", "uint256"],
                 [
-                    signature.subarray(0, 32), // the signature `r` value
+                    address, // the owner public address
                     65, // the offset in the signature bytes to the rest of the data
                     2, // v == 2, indicating a secp256r1 signature
-                    signature.subarray(32, 64), // the actual signature `s` value
+                    signature.subarray(0, 32), // the signature `r` value
+                    signature.subarray(32, 64), // the signature `s` value
                     publicKeyCoords.x, // the signer's public key `x` coordinate
                     publicKeyCoords.y, // the signer's public key `y` coordinate
                 ],
@@ -595,12 +596,13 @@ describe("Safe", () => {
             const dataHash = hre.ethers.id("Fusaka!");
             const signature = p256.sign(hre.ethers.getBytes(dataHash), secretKey, { prehash: false });
             const signatures = hre.ethers.solidityPacked(
-                ["bytes32", "uint256", "uint8", "bytes32", "uint256", "uint256"],
+                ["uint256", "uint256", "uint8", "bytes32", "bytes32", "uint256", "uint256"],
                 [
-                    signature.subarray(0, 32), // the signature `r` value
+                    address, // the owner public address
                     65, // the offset in the signature bytes to the rest of the data
                     2, // v == 2, indicating a secp256r1 signature
-                    signature.subarray(32, 64), // the actual signature `s` value
+                    signature.subarray(0, 32), // the signature `r` value
+                    signature.subarray(32, 64), // the signature `s` value
                     publicKeyCoords.x, // the signer's public key `x` coordinate
                     publicKeyCoords.y, // the signer's public key `y` coordinate
                 ],
@@ -656,12 +658,13 @@ describe("Safe", () => {
             const dataHash = hre.ethers.id("Fusaka!");
             const signature = p256.sign(hre.ethers.getBytes(dataHash), secretKey, { prehash: false });
             const signatures = hre.ethers.solidityPacked(
-                ["bytes32", "uint256", "uint8", "bytes32", "uint256", "uint256"],
+                ["uint256", "uint256", "uint8", "bytes32", "bytes32", "uint256", "uint256"],
                 [
-                    signature.subarray(0, 32), // the signature `r` value
+                    address, // the owner public address
                     65, // the offset in the signature bytes to the rest of the data
                     2, // v == 2, indicating a secp256r1 signature
-                    hre.ethers.id("invalid"), // the wrong signature `s` value, making it invalid
+                    hre.ethers.id("invalid"), // the wrong signature `r` value, making it invalid
+                    signature.subarray(32, 64), // the signature `s` value
                     publicKeyCoords.x, // the signer's public key `x` coordinate
                     publicKeyCoords.y, // the signer's public key `y` coordinate
                 ],
