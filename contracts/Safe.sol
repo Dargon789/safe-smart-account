@@ -5,6 +5,7 @@ import {FallbackManager} from "./base/FallbackManager.sol";
 import {ITransactionGuard, GuardManager} from "./base/GuardManager.sol";
 import {ModuleManager} from "./base/ModuleManager.sol";
 import {OwnerManager} from "./base/OwnerManager.sol";
+import {EIP7951} from "./common/EIP7951.sol";
 import {NativeCurrencyPaymentFallback} from "./common/NativeCurrencyPaymentFallback.sol";
 import {SecuredTokenTransfer} from "./common/SecuredTokenTransfer.sol";
 import {SignatureDecoder} from "./common/SignatureDecoder.sol";
@@ -13,7 +14,7 @@ import {StorageAccessible} from "./common/StorageAccessible.sol";
 import {SafeMath} from "./external/SafeMath.sol";
 import {ISafe} from "./interfaces/ISafe.sol";
 import {ISignatureValidator, ISignatureValidatorConstants} from "./interfaces/ISignatureValidator.sol";
-import {Enum} from "./libraries/Enum.sol";
+import {Enum} from "./interfaces/Enum.sol";
 
 /**
  * @title Safe
@@ -30,7 +31,7 @@ import {Enum} from "./libraries/Enum.sol";
  *          2. Module Guard: managed in `ModuleManager` for transactions executed with `execTransactionFromModule`
  *      - Modules: Modules are contracts that can be used to extend the write functionality of a Safe. Managed in `ModuleManager`.
  *      - Fallback: Fallback handler is a contract that can provide additional functionality for Safe. Managed in `FallbackManager`. Please read the security risks in the `IFallbackManager` interface.
- *      Note: This version of the implementation contract doesn't emit events for the sake of gas efficiency and therefore requires a tracing node for indexing/
+ *      Note: This version of the implementation contract doesn't emit events for the sake of gas efficiency and therefore requires a tracing node for indexing.
  *      For the events-based implementation see `SafeL2.sol`.
  * @author Stefan George - @Georgi87
  * @author Richard Meissner - @rmeissner
@@ -46,6 +47,7 @@ contract Safe is
     ISignatureValidatorConstants,
     FallbackManager,
     StorageAccessible,
+    EIP7951,
     ISafe
 {
     using SafeMath for uint256;
@@ -349,6 +351,44 @@ contract Safe is
                 currentOwner = address(uint160(uint256(r)));
                 // Hashes are automatically approved by the `executor` or when they have been pre-approved via a separate transaction.
                 if (executor != currentOwner && approvedHashes[currentOwner][dataHash] == 0) revertWithError("GS025");
+            } else if (v == 2) {
+                // if `v` is 2, then we have a `secp256r1` signature that we verify using the RIP-7212/EIP-7951
+                // precompile. In this case, just like for `v = 0` contract signatures, `r` is the address of the owner,
+                // and the signature `r`, `s`, and public key coordinates `qx`, `qy` are pointed to by the data pointer
+                // `s`. This is very similiar to the smart contract signature encoding, but **without** a length, since
+                // that is always fixed to 128 bytes. Just like for `secp256k1` EOA signatures, we do not enforce that
+                // `s` is on the lower half of the curve (i.e. the signature is malleable).
+                currentOwner = address(uint160(uint256(r)));
+
+                // Check that the additional signature data required for `secp256r1` verification is correctly encoded.
+                // That is, the data pointer `s` must be past the "static part" of the signature (just like for contract
+                // signatures), and additionally there must be at least 128 bytes of data containing the siguature `r`
+                // and `s` values followed by the public key coordinates.
+                if (uint256(s) < requiredSignatures.mul(65)) revertWithError("GS021");
+                if (uint256(s).add(128) > signatures.length) revertWithError("GS027");
+
+                // Extract the remaining signature parameters from the dynamic part, we rely on some assembly here in
+                // order to efficiently read the signature verification parameters from memory.
+                uint256 qx;
+                uint256 qy;
+                /* solhint-disable no-inline-assembly */
+                /// @solidity memory-safe-assembly
+                assembly {
+                    // Compute the memory offset of the dynamic part of the signature containing the additional
+                    // `secp256r1` signature data. Note that we need to offset the signatures by an additional 32 bytes
+                    // to account for the length that is stored at the start of the `signatures` bytes memory.
+                    let sig := add(signatures, add(s, 0x20))
+
+                    // Now, read the signature data that we need to call the precompile. Note that we overwrite the `s`
+                    // value (which previously held the offset in the `signatures` with the dynamic part, with the
+                    // actual ECDSA signature `s` value.
+                    r := mload(sig)
+                    s := mload(add(sig, 0x20))
+                    qx := mload(add(sig, 0x40))
+                    qy := mload(add(sig, 0x60))
+                }
+                /* solhint-enable no-inline-assembly */
+                if (currentOwner != p256Verify(dataHash, r, s, qx, qy)) revertWithError("GS028");
             } else if (v > 30) {
                 // If `v > 30` then default `v` (27, 28) has been adjusted to encode an `eth_sign` signature.
                 // To support `eth_sign` and similar we adjust `v` and hash the `dataHash` with the EIP-191 message prefix before applying `ecrecover`.
