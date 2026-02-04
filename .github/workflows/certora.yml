@@ -15,13 +15,13 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                rule: ["execute", "extensible", "fallback", "guards", "hash", "module", "nativeTokenRefund", "owner", "safe", "safeMigration", "safeToL2Migration", "safeToL2Setup", "setup", "signatures"]
+                rule: ["execute", "extensible", "fallback", "guards", "hash", "module", "nativeTokenRefund", "owner", "safe", "safeMigration", "safeToL2Setup", "setup", "signatures"]
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
 
             - name: Install python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v6
               with: { python-version: 3.11 }
 
             - name: Install certora cli

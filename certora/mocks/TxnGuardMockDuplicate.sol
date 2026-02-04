@@ -3,7 +3,7 @@
 pragma solidity >=0.7.0 <0.9.0;
 import {ITransactionGuard} from "../munged/base/GuardManager.sol";
 import {IERC165} from "../munged/interfaces/IERC165.sol";
-import "../munged/libraries/Enum.sol";
+import "../munged/interfaces/Enum.sol";
 
 contract TxnGuardMockDuplicate is ITransactionGuard {
 
@@ -46,7 +46,7 @@ contract TxnGuardMockDuplicate is ITransactionGuard {
         bytes memory signatures,
         address msgSender
     ) external override {
-        // updates transaction checked
+        // updates the transaction as checked
         preCheckedTransactions = true;
     }
 
@@ -57,7 +57,7 @@ contract TxnGuardMockDuplicate is ITransactionGuard {
      * @param success The status of the transaction execution.
      */
     function checkAfterExecution(bytes32 hash, bool success) external override {
-        // updates transaction checked
+        // updates the transaction as checked
         postCheckedTransactions = true ;
     }
 

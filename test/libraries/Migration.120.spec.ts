@@ -6,13 +6,6 @@ import deploymentData from "../json/safeDeployment.json";
 import { executeContractCallWithSigners } from "../../src/utils/execution";
 
 describe("Migration 1.2.0", () => {
-    before(function () {
-        /**
-         * ## Migration test is not relevant for zkSync: there is no 1.2.0 of safe-contracts on zkSync
-         */
-        if (hre.network.zksync) this.skip();
-    });
-
     const MigratedInterface = new ethers.Interface([
         "function domainSeparator() view returns(bytes32)",
         "function masterCopy() view returns(address)",

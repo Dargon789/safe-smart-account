@@ -64,14 +64,12 @@ abstract contract SignatureVerifierMuxer is ExtensibleBase, ERC1271, ISignatureV
     mapping(ISafe => mapping(bytes32 => ISafeSignatureVerifier)) public override domainVerifiers;
 
     // --- events ---
-    event AddedDomainVerifier(ISafe indexed safe, bytes32 domainSeparator, ISafeSignatureVerifier verifier);
     event ChangedDomainVerifier(
         ISafe indexed safe,
         bytes32 domainSeparator,
         ISafeSignatureVerifier oldVerifier,
         ISafeSignatureVerifier newVerifier
     );
-    event RemovedDomainVerifier(ISafe indexed safe, bytes32 domainSeparator);
 
     /**
      * Setter for the signature muxer
@@ -81,17 +79,8 @@ abstract contract SignatureVerifierMuxer is ExtensibleBase, ERC1271, ISignatureV
     function setDomainVerifier(bytes32 domainSeparator, ISafeSignatureVerifier newVerifier) public override onlySelf {
         ISafe safe = ISafe(payable(_msgSender()));
         ISafeSignatureVerifier oldVerifier = domainVerifiers[safe][domainSeparator];
-        if (address(newVerifier) == address(0) && address(oldVerifier) != address(0)) {
-            delete domainVerifiers[safe][domainSeparator];
-            emit RemovedDomainVerifier(safe, domainSeparator);
-        } else {
-            domainVerifiers[safe][domainSeparator] = newVerifier;
-            if (address(oldVerifier) == address(0)) {
-                emit AddedDomainVerifier(safe, domainSeparator, newVerifier);
-            } else {
-                emit ChangedDomainVerifier(safe, domainSeparator, oldVerifier, newVerifier);
-            }
-        }
+        domainVerifiers[safe][domainSeparator] = newVerifier;
+        emit ChangedDomainVerifier(safe, domainSeparator, oldVerifier, newVerifier);
     }
 
     /**
@@ -119,12 +108,14 @@ abstract contract SignatureVerifierMuxer is ExtensibleBase, ERC1271, ISignatureV
                 // Signature is for an `ISafeSignatureVerifier` - decode the signature.
                 // Layout of the `signature`:
                 // 0x00 to 0x04: selector
-                // 0x04 to 0x36: domainSeparator
-                // 0x36 to 0x68: typeHash
-                // 0x68 to 0x88: encodeData length
-                // 0x88 to 0x88 + encodeData length: encodeData
-                // 0x88 + encodeData length to 0x88 + encodeData length + 0x20: payload length
-                // 0x88 + encodeData length + 0x20 to end: payload
+                // 0x04 to 0x24: domainSeparator
+                // 0x24 to 0x44: typeHash
+                // 0x44 to 0x64: encodeData.offset
+                // 0x64 to 0x84: payload.offset
+                // encodeData.offset to encodeData.offset+0x20: encodeData.length
+                // encodeData.offset+0x20 to encodeData.offset+0x20+encodeData.length: encodeData
+                // payload.offset to payload.offset+0x20: payload.length
+                // payload.offset+0x20 to payload.offset+0x20+payload.length: payload
                 //
                 // Get the domainSeparator from the signature.
                 (bytes32 domainSeparator, bytes32 typeHash) = abi.decode(signature[4:68], (bytes32, bytes32));

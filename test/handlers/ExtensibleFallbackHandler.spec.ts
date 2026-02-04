@@ -30,7 +30,7 @@ describe("ExtensibleFallbackHandler", () => {
         const preconfiguredValidator = await getExtensibleFallbackHandler(await otherSafe.getAddress());
         const testVerifier = await (await hre.ethers.getContractFactory("TestSafeSignatureVerifier")).deploy();
         const testMarshalLib = await (await hre.ethers.getContractFactory("TestMarshalLib")).deploy();
-        const killLib = await killLibContract(user1, hre.network.zksync);
+        const killLib = await killLibContract(user1);
 
         const mirrorSource = `
         contract Mirror {
@@ -77,9 +77,27 @@ describe("ExtensibleFallbackHandler", () => {
             }
         }`;
 
+        const erc165BencherSource = `
+        interface IERC165 {
+            function supportsInterface(bytes4 interfaceId) external view returns (bool);
+        }
+
+        contract ERC165Bencher {
+            function supportsInterfaceGas(address implementation, bytes4 interfaceId) external view returns (uint256 cold, uint256 warm) {
+                cold = gasleft();
+                IERC165(implementation).supportsInterface(interfaceId);
+                cold = cold - gasleft();
+
+                warm = gasleft();
+                IERC165(implementation).supportsInterface(interfaceId);
+                warm = warm - gasleft();
+            }
+        }`;
+
         const mirror = await deployContractFromSource(user1, mirrorSource);
         const revertVerifier = await deployContractFromSource(user1, revertVerifierSource);
         const counter = await deployContractFromSource(user1, counterSource);
+        const erc165Bencher = await deployContractFromSource(user1, erc165BencherSource);
 
         // Set up the mirror on the preconfigured validator
         // Check the event when changing
@@ -110,6 +128,10 @@ describe("ExtensibleFallbackHandler", () => {
             [user1, user2],
         );
 
+        // deploy some tests tokens
+        const erc721 = await ethers.deployContract("ERC721Token");
+        const erc1155 = await ethers.deployContract("ERC1155Token");
+
         return {
             user1,
             user2,
@@ -125,37 +147,98 @@ describe("ExtensibleFallbackHandler", () => {
             counter,
             testVerifier,
             revertVerifier,
+            erc165Bencher,
             testMarshalLib,
+            erc721,
+            erc1155,
         };
     });
 
     describe("Token Callbacks", () => {
         describe("ERC1155", () => {
-            it("to handle onERC1155Received", async () => {
-                const { handler } = await setupTests();
-                expect(await handler.onERC1155Received.staticCall(AddressZero, AddressZero, 0, 0, "0x")).to.be.eq("0xf23a6e61");
-            });
-
-            it("to handle onERC1155BatchReceived", async () => {
-                const { handler } = await setupTests();
-                expect(await handler.onERC1155BatchReceived.staticCall(AddressZero, AddressZero, [], [], "0x")).to.be.eq("0xbc197c81");
-            });
-
             it("should return true when queried for ERC1155 support", async () => {
                 const { handler } = await setupTests();
                 expect(await handler.supportsInterface.staticCall("0x4e2312e0")).to.be.eq(true);
             });
+
+            it("to handle onERC1155Received", async () => {
+                const { handler, safe } = await setupTests();
+                const result = await handler
+                    .connect(ethers.provider)
+                    .onERC1155Received(AddressZero, AddressZero, 0, 0, "0x", { from: await safe.getAddress() });
+                await expect(result).to.be.eq("0xf23a6e61");
+            });
+
+            it("to handle onERC1155BatchReceived", async () => {
+                const { handler, safe } = await setupTests();
+                const result = await handler
+                    .connect(ethers.provider)
+                    .onERC1155BatchReceived(AddressZero, AddressZero, [], [], "0x", { from: await safe.getAddress() });
+                await expect(result).to.be.eq("0xbc197c81");
+            });
+
+            it("should allow a Safe to receive ERC-1155 tokens", async () => {
+                const { safe, user1, erc1155 } = await setupTests();
+                await erc1155.mintBatch(await user1.getAddress(), [1, 2, 3], [100, 100, 100], "0x");
+
+                await expect(erc1155.connect(user1).safeTransferFrom(await user1.getAddress(), await safe.getAddress(), 1, 100, "0x")).to
+                    .not.be.reverted;
+                await expect(
+                    erc1155
+                        .connect(user1)
+                        .safeBatchTransferFrom(await user1.getAddress(), await safe.getAddress(), [2, 3], [100, 100], "0x"),
+                ).to.not.be.reverted;
+            });
+
+            it("should revert when tokens are transferred directly to the handler", async () => {
+                const { handler, user1, erc1155 } = await setupTests();
+                await erc1155.mintBatch(await user1.getAddress(), [1, 2, 3], [100, 100, 100], "0x");
+
+                await expect(erc1155.connect(user1).safeTransferFrom(await user1.getAddress(), await handler.getAddress(), 1, 100, "0x")).to
+                    .be.reverted;
+                await expect(
+                    erc1155
+                        .connect(user1)
+                        .safeBatchTransferFrom(await user1.getAddress(), await handler.getAddress(), [2, 3], [100, 100], "0x"),
+                ).to.be.revertedWith("not a fallback call");
+            });
         });
 
         describe("ERC721", () => {
-            it("to handle onERC721Received", async () => {
-                const { handler } = await setupTests();
-                expect(await handler.onERC721Received.staticCall(AddressZero, AddressZero, 0, "0x")).to.be.eq("0x150b7a02");
-            });
-
             it("should return true when queried for ERC721 support", async () => {
                 const { handler } = await setupTests();
                 expect(await handler.supportsInterface.staticCall("0x150b7a02")).to.be.eq(true);
+            });
+
+            it("to handle onERC721Received", async () => {
+                const { handler, safe } = await setupTests();
+
+                const result = await handler
+                    .connect(ethers.provider)
+                    .onERC721Received(AddressZero, AddressZero, 0, "0x", { from: await safe.getAddress() });
+                await expect(result).to.be.eq("0x150b7a02");
+            });
+
+            it("should allow a Safe to receive ERC-721 tokens", async () => {
+                const { safe, user1, erc721 } = await setupTests();
+                await erc721.mint(await user1.getAddress(), 1);
+
+                await expect(
+                    erc721
+                        .connect(user1)
+                        ["safeTransferFrom(address,address,uint256)"](await user1.getAddress(), await safe.getAddress(), 1),
+                ).to.not.be.reverted;
+            });
+
+            it("should revert when tokens are transferred directly to the handler", async () => {
+                const { handler, user1, erc721 } = await setupTests();
+                await erc721.mint(await user1.getAddress(), 1);
+
+                await expect(
+                    erc721
+                        .connect(user1)
+                        ["safeTransferFrom(address,address,uint256)"](await user1.getAddress(), await handler.getAddress(), 1),
+                ).to.be.revertedWith("not a fallback call");
             });
         });
     });
@@ -190,8 +273,8 @@ describe("ExtensibleFallbackHandler", () => {
                 const safeAddress = await safe.getAddress();
                 const newHandler = encodeHandler(true, await mirror.getAddress());
                 await expect(executeContractCallWithSigners(safe, validator, "setSafeMethod", ["0xdededede", newHandler], [user1, user2]))
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xdededede", newHandler.toLowerCase());
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xdededede", HashZero, newHandler.toLowerCase());
 
                 // Check that the method is actually set
                 expect(await handler.safeMethods.staticCall(safeAddress, "0xdededede")).to.be.eq(newHandler);
@@ -219,8 +302,9 @@ describe("ExtensibleFallbackHandler", () => {
             });
 
             it("should emit event when removing a method", async () => {
-                const { user1, user2, otherSafe, handler, preconfiguredValidator } = await setupTests();
+                const { user1, user2, otherSafe, handler, preconfiguredValidator, mirror } = await setupTests();
                 const otherSafeAddress = await otherSafe.getAddress();
+                const oldHandler = encodeHandler(true, await mirror.getAddress());
                 await expect(
                     executeContractCallWithSigners(
                         otherSafe,
@@ -230,8 +314,8 @@ describe("ExtensibleFallbackHandler", () => {
                         [user1, user2],
                     ),
                 )
-                    .to.emit(handler, "RemovedSafeMethod")
-                    .withArgs(otherSafeAddress, "0x7f8dc53c");
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(otherSafeAddress, "0x7f8dc53c", oldHandler, HashZero);
 
                 // Check that the method is actually removed
                 expect(await handler.safeMethods.staticCall(otherSafeAddress, "0x7f8dc53c")).to.be.eq(HashZero);
@@ -390,8 +474,8 @@ describe("ExtensibleFallbackHandler", () => {
                         [user1, user2],
                     ),
                 )
-                    .to.emit(handler, "AddedDomainVerifier")
-                    .withArgs(safeAddress, domainSeparator, testVerifierAddress);
+                    .to.emit(handler, "ChangedDomainVerifier")
+                    .withArgs(safeAddress, domainSeparator, ethers.ZeroAddress, testVerifierAddress);
 
                 expect(await handler.domainVerifiers(safeAddress, domainSeparator)).to.be.eq(testVerifierAddress);
             });
@@ -422,6 +506,8 @@ describe("ExtensibleFallbackHandler", () => {
                 const { user1, user2, otherSafe, handler, preconfiguredValidator } = await setupTests();
                 const otherSafeAddress = await otherSafe.getAddress();
                 const domainSeparator = ethers.keccak256("0xdeadbeef");
+                const oldVerifier = await handler.domainVerifiers(otherSafeAddress, domainSeparator);
+
                 await expect(
                     executeContractCallWithSigners(
                         otherSafe,
@@ -431,8 +517,8 @@ describe("ExtensibleFallbackHandler", () => {
                         [user1, user2],
                     ),
                 )
-                    .to.emit(handler, "RemovedDomainVerifier")
-                    .withArgs(otherSafeAddress, domainSeparator);
+                    .to.emit(handler, "ChangedDomainVerifier")
+                    .withArgs(otherSafeAddress, domainSeparator, oldVerifier, ethers.ZeroAddress);
 
                 expect(await handler.domainVerifiers(otherSafeAddress, domainSeparator)).to.be.eq(AddressZero);
             });
@@ -628,6 +714,16 @@ describe("ExtensibleFallbackHandler", () => {
                 const { validator } = await setupTests();
                 expect(await validator.supportsInterface.staticCall("0x01ffc9a7")).to.be.true;
             });
+
+            it("should use less than 30.000 gas", async () => {
+                const { validator, erc165Bencher } = await setupTests();
+
+                for (const interfaceId of ["0x01ffc9a7", "0xdeadbeef"]) {
+                    const [cold, warm] = await erc165Bencher.supportsInterfaceGas(await validator.getAddress(), interfaceId);
+                    expect(cold).to.be.lessThan(30000);
+                    expect(warm).to.be.lessThan(30000);
+                }
+            });
         });
 
         describe("setSupportedInterface(bytes4,bool)", () => {
@@ -721,12 +817,12 @@ describe("ExtensibleFallbackHandler", () => {
                 await expect(
                     executeContractCallWithSigners(safe, validator, "addSupportedInterfaceBatch", [interfaceId, batch], [user1, user2]),
                 )
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xabababab", encodeHandler(true, mirrorAddress))
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xcdcdcdcd", encodeHandler(true, mirrorAddress))
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xefefefef", encodeHandler(true, mirrorAddress))
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xabababab", HashZero, encodeHandler(true, mirrorAddress))
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xcdcdcdcd", HashZero, encodeHandler(true, mirrorAddress))
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xefefefef", HashZero, encodeHandler(true, mirrorAddress))
                     .to.emit(handler, "AddedInterface")
                     .withArgs(safeAddress, interfaceId);
 
@@ -762,12 +858,12 @@ describe("ExtensibleFallbackHandler", () => {
                 await expect(
                     executeContractCallWithSigners(safe, validator, "addSupportedInterfaceBatch", [interfaceId, batch], [user1, user2]),
                 )
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xabababab", encodeHandler(true, mirrorAddress))
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xcdcdcdcd", encodeHandler(true, mirrorAddress))
-                    .to.emit(handler, "AddedSafeMethod")
-                    .withArgs(safeAddress, "0xefefefef", encodeHandler(true, mirrorAddress))
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xabababab", HashZero, encodeHandler(true, mirrorAddress))
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xcdcdcdcd", HashZero, encodeHandler(true, mirrorAddress))
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xefefefef", HashZero, encodeHandler(true, mirrorAddress))
                     .to.emit(handler, "AddedInterface")
                     .withArgs(safeAddress, interfaceId);
 
@@ -795,12 +891,12 @@ describe("ExtensibleFallbackHandler", () => {
                         [user1, user2],
                     ),
                 )
-                    .to.emit(handler, "RemovedSafeMethod")
-                    .withArgs(safeAddress, "0xabababab")
-                    .to.emit(handler, "RemovedSafeMethod")
-                    .withArgs(safeAddress, "0xcdcdcdcd")
-                    .to.emit(handler, "RemovedSafeMethod")
-                    .withArgs(safeAddress, "0xefefefef")
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xabababab", encodeHandler(true, mirrorAddress), HashZero)
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xcdcdcdcd", encodeHandler(true, mirrorAddress), HashZero)
+                    .to.emit(handler, "ChangedSafeMethod")
+                    .withArgs(safeAddress, "0xefefefef", encodeHandler(true, mirrorAddress), HashZero)
                     .to.emit(handler, "RemovedInterface")
                     .withArgs(safeAddress, interfaceId);
 

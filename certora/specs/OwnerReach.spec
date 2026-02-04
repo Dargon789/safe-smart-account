@@ -4,7 +4,7 @@
  * This file uses a reach predicate:
  *    ghost reach(address, address) returns bool
  * to represent the transitive relation of the next
- * relation given byt the "owners" field.
+ * relation given by the "owners" field.
  *
  * The idea comes from the paper
  *
@@ -17,6 +17,8 @@
 methods {
     function isOwner(address) external returns (bool) envfree;
     function getThreshold() external returns (uint256) envfree;
+
+    function EIP7702.isThisDelegatedAccount() internal returns (bool) => CONSTANT;
 }
 
 definition reachableOnly(method f) returns bool =
@@ -54,18 +56,6 @@ invariant thresholdSet() getThreshold() > 0  && getThreshold() <= ghostOwnerCoun
             requireInvariant reach_invariant();
             requireInvariant inListReachable();
             requireInvariant reachableInList();
-        }
-    }
-
-invariant self_not_owner() currentContract != SENTINEL => ghostOwners[currentContract] == 0
-    filtered { f -> reachableOnly(f) }
-    {
-        preserved {
-            requireInvariant reach_null();
-            requireInvariant reach_invariant();
-            requireInvariant inListReachable();
-            requireInvariant reachableInList();
-            requireInvariant thresholdSet();
         }
     }
 
@@ -289,12 +279,11 @@ rule isOwnerDoesNotRevert {
     assert !lastReverted, "isOwner should not revert";
 }
 
-rule isOwnerNotSelfOrSentinel {
+rule isOwnerNotSentinel {
     address addr;
-    require addr == currentContract || addr == SENTINEL;
-    requireInvariant self_not_owner();
+    require addr == SENTINEL;
     bool result = isOwner(addr);
-    assert result == false, "currentContract or SENTINEL must not be owners";
+    assert result == false, "SENTINEL must not be owners";
 }
 
 rule isOwnerInList {

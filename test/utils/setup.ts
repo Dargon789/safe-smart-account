@@ -2,10 +2,8 @@ import hre, { deployments } from "hardhat";
 import { Contract, Signer, ethers } from "ethers";
 import { AddressZero } from "@ethersproject/constants";
 import solc from "solc";
-import * as zk from "zksync-ethers";
 import { logGas } from "../../src/utils/execution";
 import { safeContractUnderTest } from "./config";
-import { zkCompile } from "./zkSync";
 import { getRandomIntAsString } from "./numbers";
 import { MockContract, Safe, SafeL2 } from "../../typechain-types";
 
@@ -34,7 +32,8 @@ export const defaultTokenCallbackHandlerDeployment = async () => {
 
 export const getSafeSingleton = async () => {
     const safeContractName = safeContractUnderTest();
-    const safe = await hre.ethers.getContractAt(safeContractUnderTest(), (await deployments.get(safeContractName)).address);
+    const { address } = await deployments.get(safeContractName);
+    const safe = await hre.ethers.getContractAt(safeContractName, address);
     return safe as unknown as Safe | SafeL2;
 };
 
@@ -114,6 +113,25 @@ export const getSafeTemplateWithSingleton = async (singleton: Contract | Safe, s
     return singleton.attach(template) as Safe | SafeL2;
 };
 
+export const getEip7702SafeTemplate = async (authority: Signer) => {
+    const singleton = await getSafeSingleton();
+    return getEip7702SafeTemplateWithSingleton(singleton, authority);
+};
+
+export const getEip7702SafeTemplateWithSingleton = async (singleton: Safe | SafeL2 | Contract, authority: Signer) => {
+    // Note that this process is UNSAFE and only used for testing. If used in the real world, your Safe setup can be
+    // front-run by anyone and created with different parameters than you intended.
+    const authorization = await authority.authorize({
+        address: await singleton.getAddress(),
+        // Since we are using the authority to set the delegation on itself, we need to sign it for the subsequent
+        // nonce, as the current one is used for the transaction execution.
+        nonce: (await hre.ethers.provider.getTransactionCount(authority)) + 1,
+    });
+    const delegation = await authority.sendTransaction({ to: authority, authorizationList: [authorization] });
+    await delegation.wait();
+    return singleton.attach(await authority.getAddress()) as Safe | SafeL2;
+};
+
 export const getSafe = async (safe: GetSafeParameters) => {
     const {
         singleton = await getSafeSingleton(),
@@ -129,6 +147,26 @@ export const getSafe = async (safe: GetSafeParameters) => {
     const template = await getSafeTemplateWithSingleton(singleton, saltNumber);
     await logGas(
         `Setup Safe with ${owners.length} owner(s)${fallbackHandler && fallbackHandler !== AddressZero ? " and fallback handler" : ""}`,
+        template.setup(owners, threshold, to, data, fallbackHandler, AddressZero, 0, AddressZero),
+        !logGasUsage,
+    );
+    return template;
+};
+
+export const getEip7702Safe = async (authority: Signer, safe: GetSafeParameters) => {
+    const {
+        singleton = await getSafeSingleton(),
+        owners,
+        threshold = owners.length,
+        to = AddressZero,
+        data = "0x",
+        fallbackHandler = AddressZero,
+        logGasUsage = false,
+    } = safe;
+
+    const template = await getEip7702SafeTemplateWithSingleton(singleton, authority);
+    await logGas(
+        `Setup EIP-7702 delegated Safe with ${owners.length} owner(s)${fallbackHandler && fallbackHandler !== AddressZero ? " and fallback handler" : ""}`,
         template.setup(owners, threshold, to, data, fallbackHandler, AddressZero, 0, AddressZero),
         !logGasUsage,
     );
@@ -201,34 +239,37 @@ export const compile = async (source: string) => {
         throw Error("Could not compile contract");
     }
     const fileOutput = output["contracts"]["tmp.sol"];
-    const contractOutput = fileOutput[Object.keys(fileOutput)[0]];
-    const abi = contractOutput["abi"];
-    const data = "0x" + contractOutput["evm"]["bytecode"]["object"];
-    return {
-        data: data,
-        interface: abi,
-    };
+
+    // Find the first contract with bytecode in the output, this allows the
+    // compiled code to include interfaces.
+    for (const contract in fileOutput) {
+        const contractOutput = fileOutput[contract];
+        if (!contractOutput["evm"]["bytecode"] || !contractOutput["evm"]["bytecode"]["object"]) {
+            continue;
+        }
+
+        const abi = contractOutput["abi"];
+        const data = "0x" + contractOutput["evm"]["bytecode"]["object"];
+        return {
+            data,
+            interface: abi,
+        };
+    }
+
+    console.log(output);
+    throw Error("No contract with bytecode");
 };
 
 export const deployContractFromSource = async (deployer: Signer, source: string): Promise<ethers.Contract> => {
-    if (!hre.network.zksync) {
-        const output = await compile(source);
-        const transaction = await deployer.sendTransaction({ data: output.data, gasLimit: 6000000 });
-        const receipt = await transaction.wait();
+    const output = await compile(source);
+    const transaction = await deployer.sendTransaction({ data: output.data, gasLimit: 6000000 });
+    const receipt = await transaction.wait();
 
-        if (!receipt?.contractAddress) {
-            throw Error("Could not deploy contract");
-        }
-
-        return new Contract(receipt.contractAddress, output.interface, deployer);
-    } else {
-        const output = await zkCompile(hre, source);
-        const signers = await hre.ethers.getSigners();
-        const factory = new zk.ContractFactory(output.abi, output.bytecode, signers[0], "create");
-        const contract = await factory.deploy();
-
-        return contract as ethers.Contract;
+    if (!receipt?.contractAddress) {
+        throw Error("Could not deploy contract");
     }
+
+    return new Contract(receipt.contractAddress, output.interface, deployer);
 };
 
 export const getSignMessageLib = async () => {

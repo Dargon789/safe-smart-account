@@ -8,13 +8,6 @@ import deploymentData from "../json/safeDeployment.json";
 import { calculateProxyAddress } from "../../src/utils/proxies";
 
 describe("Upgrade from Safe 1.2.0", () => {
-    before(function () {
-        /**
-         * ## There's no safe 1.2.0 on zkSync, so we skip this test
-         */
-        if (hre.network.zksync) this.skip();
-    });
-
     const ChangeMasterCopyInterface = new ethers.Interface(["function changeMasterCopy(address target)"]);
 
     // We migrate the Safe and run the verification tests

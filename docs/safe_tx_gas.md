@@ -10,11 +10,11 @@ The behaviour of `safeTxGas` depends on the `gasPrice` value of the Safe transac
 
 If `gasPrice` is set to a value `>0` the Safe Smart Account will issue a refund for the gas costs incurred during the execution of the Safe transaction. An example where this can be used is the relayers. These would execute the Safe transaction after it has been signed by the owners and then would get refunded for the execution.
 
-The logic for this can be seen in [`Safe.sol`](https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L183-L185):
+The logic for this can be seen in [`Safe.sol`](https://github.com/safe-global/safe-smart-account/blob/c85741a6cda020cce3bc523c169909318717736f/contracts/Safe.sol#L191-L193):
 
 ```js
 if (gasPrice > 0) {
-  payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
+    payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver);
 }
 ```
 
@@ -28,13 +28,12 @@ This also results in the `nonce` of this transaction being used, so it is not po
 
 If `gasPrice` is set to `0` then the Safe Smart Account will **not** issue a refund after the Safe transaction execution.
 
-Therefore it is not necessary to be as strict on the gas being passed along with the execution of the Safe transaction. As no refund is triggered the Safe will not pay for the execution costs, based on this the Safe Smart Account will send along all available case when no refund is used.
+Therefore it is not necessary to be as strict on the gas being passed along with the execution of the Safe transaction. As no refund is triggered the Safe will not pay for the execution costs, the Safe Smart Account will send along all available gas when no refund is used.
 
-Before the execution the Safe Smart Account always check if enough gas is available to satisfy the `safeTxGas`. This can be seen in [`Safe.sol`](https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L168-L170):
+Before execution, the Safe Smart Account always checks if enough gas is available to satisfy the `safeTxGas`. This can be seen in [`Safe.sol`](https://github.com/safe-global/safe-smart-account/blob/c85741a6cda020cce3bc523c169909318717736f/contracts/Safe.sol#L168-L169):
 
 ```js
-require(gasleft() >=
-  ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 500, "GS010");
+require(gasleft() >= ((safeTxGas * 64) / 63).max(safeTxGas + 2500) + 500, "GS010");
 ```
 
 **Therefore the `safeTxGas` behaves like a "minimum" gas value, that needs to be available, when it is set to a value > 0**
@@ -49,7 +48,7 @@ To make it easier to set the `safeTxGas` value a change has been made with the 1
 
 **When `safeTxGas` is set to `0`, the Safe contract will revert if the internal Safe transaction fails** (see [#274](https://github.com/safe-global/safe-smart-account/issues/274))
 
-That means if `safeTxGas` is set to `0` the Safe contract sends along all the available gas when performing the internal Safe transaction. If that transaction fails the Safe will revert and therefore also undo all State changes. This can be seen in [`Safe.sol`](https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol#L178-L187):
+That means if `safeTxGas` is set to `0` the Safe contract sends along all the available gas when performing the internal Safe transaction. If that transaction fails the Safe will revert and therefore also undo all State changes. This can be seen in [`Safe.sol`](https://github.com/safe-global/safe-smart-account/blob/c85741a6cda020cce3bc523c169909318717736f/contracts/Safe.sol#L179-L188):
 
 ```js
 if (!success && safeTxGas == 0 && gasPrice == 0) {

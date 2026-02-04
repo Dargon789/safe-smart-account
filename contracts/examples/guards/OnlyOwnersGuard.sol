@@ -4,7 +4,7 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import {BaseTransactionGuard} from "./../../base/GuardManager.sol";
 import {ISafe} from "./../../interfaces/ISafe.sol";
-import {Enum} from "./../../libraries/Enum.sol";
+import {Enum} from "./../../interfaces/Enum.sol";
 
 /**
  * @title OnlyOwnersGuard - Only allows owners to execute transactions.
@@ -38,7 +38,7 @@ contract OnlyOwnersGuard is BaseTransactionGuard {
         bytes memory,
         address msgSender
     ) external view override {
-        require(ISafe(msg.sender).isOwner(msgSender), "msg sender is not allowed to exec");
+        require(ISafe(payable(msg.sender)).isOwner(msgSender), "msg sender is not allowed to exec");
     }
 
     /**

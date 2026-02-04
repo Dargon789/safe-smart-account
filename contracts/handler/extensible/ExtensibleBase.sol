@@ -20,9 +20,7 @@ interface IStaticFallbackMethod {
  */
 abstract contract ExtensibleBase is HandlerContext {
     // --- events ---
-    event AddedSafeMethod(ISafe indexed safe, bytes4 selector, bytes32 method);
     event ChangedSafeMethod(ISafe indexed safe, bytes4 selector, bytes32 oldMethod, bytes32 newMethod);
-    event RemovedSafeMethod(ISafe indexed safe, bytes4 selector);
 
     // --- storage ---
 
@@ -45,27 +43,25 @@ abstract contract ExtensibleBase is HandlerContext {
     // --- internal ---
 
     function _setSafeMethod(ISafe safe, bytes4 selector, bytes32 newMethod) internal {
-        (, address newHandler) = MarshalLib.decode(newMethod);
         mapping(bytes4 => bytes32) storage safeMethod = safeMethods[safe];
         bytes32 oldMethod = safeMethod[selector];
-        (, address oldHandler) = MarshalLib.decode(oldMethod);
 
-        if (address(newHandler) == address(0) && address(oldHandler) != address(0)) {
-            delete safeMethod[selector];
-            emit RemovedSafeMethod(safe, selector);
-        } else {
-            safeMethod[selector] = newMethod;
-            if (address(oldHandler) == address(0)) {
-                emit AddedSafeMethod(safe, selector, newMethod);
-            } else {
-                emit ChangedSafeMethod(safe, selector, oldMethod, newMethod);
-            }
+        (, address newHandler) = MarshalLib.decode(newMethod);
+        if (address(newHandler) == address(0)) {
+            // Note that we treat methods with handlers set to the 0 address the same. That
+            // is, the `isStatic` flag of the method is ignored. This is because having a
+            // handler address of 0 indicates that the method is disabled (regardless of
+            // the other flags).
+            newMethod = bytes32(0);
         }
+
+        safeMethod[selector] = newMethod;
+        emit ChangedSafeMethod(safe, selector, oldMethod, newMethod);
     }
 
     /**
      * Dry code to get the Safe and the original `msg.sender` from the FallbackManager
-     * @return safe The safe whose FallbackManager is making this call
+     * @return safe The Safe whose FallbackManager is making this call
      * @return sender The original `msg.sender` (as received by the FallbackManager)
      */
     function _getContext() internal view returns (ISafe safe, address sender) {
@@ -75,7 +71,7 @@ abstract contract ExtensibleBase is HandlerContext {
 
     /**
      * Get the context and the method handler applicable to the current call
-     * @return safe The safe whose FallbackManager is making this call
+     * @return safe The Safe whose FallbackManager is making this call
      * @return sender The original `msg.sender` (as received by the FallbackManager)
      * @return isStatic Whether the method is static (`view`) or not
      * @return handler the address of the handler contract
