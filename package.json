@@ -81,7 +81,7 @@
         "prettier": "^3.6.2",
         "prettier-plugin-solidity": "^2.2.0",
         "rimraf": "^6.1.0",
-        "solc": "=0.7.6",
+        "solc": "0.8.33",
         "solhint": "^5.2.0",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
