@@ -60,7 +60,7 @@
         "@eslint/js": "^9.39.1",
         "@noble/curves": "^2.0.1",
         "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-        "@openzeppelin/contracts": "^3.4.2",
+        "@openzeppelin/contracts": "^5.4.0",
         "@safe-global/mock-contract": "^4.1.0",
         "@safe-global/safe-singleton-factory": "^2.0.0",
         "@types/chai": "^4.3.20",
