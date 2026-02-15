@@ -71,7 +71,7 @@
         "@typescript-eslint/parser": "^8.47.0",
         "debug": "^4.4.3",
         "dotenv": "^17.2.3",
-        "eslint": "^9.39.1",
+        "eslint": "^10.0.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-no-only-tests": "^3.3.0",
         "eslint-plugin-prettier": "^5.5.4",
