@@ -17,7 +17,6 @@ yarn-error.log
 typechain-types
 .vscode
 .cache
-
 # Certora Formal Verification related files
 .certora_internal
 .certora_recent_jobs.json
