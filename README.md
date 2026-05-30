@@ -74,13 +74,13 @@ npx hardhat --network <network> local-verify
 
 #### Custom Networks
 
-It is possible to use the `NODE_URL` env var to connect to any EVM based network via an RPC endpoint. This connection then can be used with the `custom` network.
+It is possible to use the `NODE_URL` env var to connect to any EVM-based network via an RPC endpoint. This connection then can be used with the `custom` network.
 
 E.g. to deploy the Safe contract suite on that network you would run `npm run deploy-all custom`.
 
-The resulting addresses should be on all networks the same.
+The resulting addresses should be the same on all networks.
 
-Note: Address will vary if contract code is changed or a different Solidity version is used.
+Note: Addresses will vary if contract code is changed or a different Solidity version is used.
 
 #### Replay protection ([EIP-155](https://eips.ethereum.org/EIPS/eip-155))
 
