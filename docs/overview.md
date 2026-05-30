@@ -125,7 +125,7 @@ The linked list head and tail are the 0x1 address. The head and tail are never r
 
 #### Module Management
 
-Owners are managed in the ModuleManager contract. It uses a linked list to store the modules because the EVM bytecode solc generates for a dynamic array is not the most efficient.
+Owners are managed in the `ModuleManager` contract. It uses a linked list to store the modules because the EVM bytecode `solc` generates for a dynamic array is not the most efficient.
 
 The linked list head and tail are the 0x1 address. The head and tail are never removed from the list. The head and tail are never modules.
 
