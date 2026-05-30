@@ -98,7 +98,7 @@ contract Safe is
      */
     constructor() {
         // By setting the threshold it is not possible to call setup anymore, so we create a Safe with 0 owners and threshold 1.
-        // This is an unusable Safe, perfect for the singleton.
+        // This is an unusable Safe, perfect for the singleton
         threshold = 1;
     }
 
@@ -117,17 +117,17 @@ contract Safe is
     ) external override {
         // Emit the setup event optimistically. This ensures that changes such as `addOwner` and `changeThreshold` that are part
         // of the  `to.delegatecall(data)` that happen in the `setupModules` call emit events in order relative to the setup
-        // event, making it easier for offchain indexers to reliably reconstruct the Safe configuration.
+        // event, making it easier for off-chain indexers to reliably reconstruct the Safe configuration.
         emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler);
 
         // `setupOwners` checks if the `threshold` is already set, therefore preventing this method from being called more than once.
         setupOwners(_owners, _threshold);
         if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
-        // As `setupOwners` can only be called if the contract has not been initialized, we don't need a check for `setupModules`.
+        // As `setupOwners` can only be called if the contract has not been initialized we don't need a check for `setupModules`.
         setupModules(to, data);
 
         if (payment > 0) {
-            // To avoid running into issues with EIP-170, we reuse the `handlePayment` function (to avoid adjusting code that has been verified we do not adjust the method itself):
+            // To avoid running into issues with EIP-170 we reuse the `handlePayment` function (to avoid adjusting code that has been verified we do not adjust the method itself):
             // `baseGas = 0`, `gasPrice = 1` and `gas = payment`, therefore: `amount = (payment + 0) * 1 = payment`.
             handlePayment(payment, 0, 1, paymentToken, paymentReceiver);
         }
