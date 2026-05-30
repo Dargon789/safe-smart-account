@@ -24,7 +24,7 @@ npm run build
 npm run test
 ```
 
-Optionally, if you want to run the ERC-4337 compatibility test, it uses a live bundler and node, so it contains some pre-requisites:
+Optionally, if you want to run the ERC-4337 compatibility test, it uses a live bundler and node, so it contains some prerequisites:
 
 1. Define the environment variables:
 
