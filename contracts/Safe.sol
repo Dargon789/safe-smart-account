@@ -7,13 +7,13 @@ import {ModuleManager} from "./base/ModuleManager.sol";
 import {OwnerManager} from "./base/OwnerManager.sol";
 import {EIP7951} from "./common/EIP7951.sol";
 import {NativeCurrencyPaymentFallback} from "./common/NativeCurrencyPaymentFallback.sol";
+import {SecuredSignatureValidator} from "./common/SecuredSignatureValidator.sol";
 import {SecuredTokenTransfer} from "./common/SecuredTokenTransfer.sol";
 import {SignatureDecoder} from "./common/SignatureDecoder.sol";
 import {Singleton} from "./common/Singleton.sol";
 import {StorageAccessible} from "./common/StorageAccessible.sol";
 import {SafeMath} from "./external/SafeMath.sol";
 import {ISafe} from "./interfaces/ISafe.sol";
-import {ISignatureValidator, ISignatureValidatorConstants} from "./interfaces/ISignatureValidator.sol";
 import {Enum} from "./interfaces/Enum.sol";
 
 /**
@@ -44,7 +44,7 @@ contract Safe is
     OwnerManager,
     SignatureDecoder,
     SecuredTokenTransfer,
-    ISignatureValidatorConstants,
+    SecuredSignatureValidator,
     FallbackManager,
     StorageAccessible,
     EIP7951,
@@ -292,7 +292,7 @@ contract Safe is
         }
         /* solhint-enable no-inline-assembly */
 
-        if (ISignatureValidator(owner).isValidSignature(dataHash, contractSignature) != EIP1271_MAGIC_VALUE) revertWithError("GS024");
+        if (!validateContractSignature(owner, dataHash, contractSignature)) revertWithError("GS024");
     }
 
     /**
@@ -362,7 +362,7 @@ contract Safe is
 
                 // Check that the additional signature data required for `secp256r1` verification is correctly encoded.
                 // That is, the data pointer `s` must be past the "static part" of the signature (just like for contract
-                // signatures), and additionally there must be at least 128 bytes of data containing the siguature `r`
+                // signatures), and additionally there must be at least 128 bytes of data containing the signature `r`
                 // and `s` values followed by the public key coordinates.
                 if (uint256(s) < requiredSignatures.mul(65)) revertWithError("GS021");
                 if (uint256(s).add(128) > signatures.length) revertWithError("GS027");
