@@ -7,13 +7,13 @@ import {ModuleManager} from "./base/ModuleManager.sol";
 import {OwnerManager} from "./base/OwnerManager.sol";
 import {EIP7951} from "./common/EIP7951.sol";
 import {NativeCurrencyPaymentFallback} from "./common/NativeCurrencyPaymentFallback.sol";
+import {SecuredSignatureValidator} from "./common/SecuredSignatureValidator.sol";
 import {SecuredTokenTransfer} from "./common/SecuredTokenTransfer.sol";
 import {SignatureDecoder} from "./common/SignatureDecoder.sol";
 import {Singleton} from "./common/Singleton.sol";
 import {StorageAccessible} from "./common/StorageAccessible.sol";
 import {SafeMath} from "./external/SafeMath.sol";
 import {ISafe} from "./interfaces/ISafe.sol";
-import {ISignatureValidator, ISignatureValidatorConstants} from "./interfaces/ISignatureValidator.sol";
 import {Enum} from "./interfaces/Enum.sol";
 
 /**
@@ -44,7 +44,7 @@ contract Safe is
     OwnerManager,
     SignatureDecoder,
     SecuredTokenTransfer,
-    ISignatureValidatorConstants,
+    SecuredSignatureValidator,
     FallbackManager,
     StorageAccessible,
     EIP7951,
@@ -98,7 +98,7 @@ contract Safe is
      */
     constructor() {
         // By setting the threshold it is not possible to call setup anymore, so we create a Safe with 0 owners and threshold 1.
-        // This is an unusable Safe, perfect for the singleton
+        // This is an unusable Safe, perfect for the singleton.
         threshold = 1;
     }
 
@@ -117,17 +117,17 @@ contract Safe is
     ) external override {
         // Emit the setup event optimistically. This ensures that changes such as `addOwner` and `changeThreshold` that are part
         // of the  `to.delegatecall(data)` that happen in the `setupModules` call emit events in order relative to the setup
-        // event, making it easier for off-chain indexers to reliably reconstruct the Safe configuration.
+        // event, making it easier for offchain indexers to reliably reconstruct the Safe configuration.
         emit SafeSetup(msg.sender, _owners, _threshold, to, fallbackHandler);
 
         // `setupOwners` checks if the `threshold` is already set, therefore preventing this method from being called more than once.
         setupOwners(_owners, _threshold);
         if (fallbackHandler != address(0)) internalSetFallbackHandler(fallbackHandler);
-        // As `setupOwners` can only be called if the contract has not been initialized we don't need a check for `setupModules`.
+        // As `setupOwners` can only be called if the contract has not been initialized, we don't need a check for `setupModules`.
         setupModules(to, data);
 
         if (payment > 0) {
-            // To avoid running into issues with EIP-170 we reuse the `handlePayment` function (to avoid adjusting code that has been verified we do not adjust the method itself):
+            // To avoid running into issues with EIP-170, we reuse the `handlePayment` function (to avoid adjusting code that has been verified we do not adjust the method itself):
             // `baseGas = 0`, `gasPrice = 1` and `gas = payment`, therefore: `amount = (payment + 0) * 1 = payment`.
             handlePayment(payment, 0, 1, paymentToken, paymentReceiver);
         }
@@ -292,7 +292,7 @@ contract Safe is
         }
         /* solhint-enable no-inline-assembly */
 
-        if (ISignatureValidator(owner).isValidSignature(dataHash, contractSignature) != EIP1271_MAGIC_VALUE) revertWithError("GS024");
+        if (!validateContractSignature(owner, dataHash, contractSignature)) revertWithError("GS024");
     }
 
     /**
@@ -362,7 +362,7 @@ contract Safe is
 
                 // Check that the additional signature data required for `secp256r1` verification is correctly encoded.
                 // That is, the data pointer `s` must be past the "static part" of the signature (just like for contract
-                // signatures), and additionally there must be at least 128 bytes of data containing the siguature `r`
+                // signatures), and additionally there must be at least 128 bytes of data containing the signature `r`
                 // and `s` values followed by the public key coordinates.
                 if (uint256(s) < requiredSignatures.mul(65)) revertWithError("GS021");
                 if (uint256(s).add(128) > signatures.length) revertWithError("GS027");
@@ -371,6 +371,7 @@ contract Safe is
                 // order to efficiently read the signature verification parameters from memory.
                 uint256 qx;
                 uint256 qy;
+                address signerAddress;
                 /* solhint-disable no-inline-assembly */
                 /// @solidity memory-safe-assembly
                 assembly {
@@ -386,9 +387,13 @@ contract Safe is
                     s := mload(add(sig, 0x20))
                     qx := mload(add(sig, 0x40))
                     qy := mload(add(sig, 0x60))
+
+                    // Just like for regular `secp256k1` (with a **k**) EOAs, we define the public address to be the
+                    // last 20 bytes of the hash of the public key coordinates.
+                    signerAddress := keccak256(add(sig, 0x40), 0x40)
                 }
                 /* solhint-enable no-inline-assembly */
-                if (currentOwner != p256Verify(dataHash, r, s, qx, qy)) revertWithError("GS028");
+                if (currentOwner != signerAddress || !p256Verify(dataHash, r, s, qx, qy)) revertWithError("GS028");
             } else if (v > 30) {
                 // If `v > 30` then default `v` (27, 28) has been adjusted to encode an `eth_sign` signature.
                 // To support `eth_sign` and similar we adjust `v` and hash the `dataHash` with the EIP-191 message prefix before applying `ecrecover`.

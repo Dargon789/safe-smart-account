@@ -20,6 +20,7 @@ import {
     buildSignatureBytes,
 } from "../../src/utils/execution";
 import { chainId } from "../utils/encoding";
+import { revertingSignatureValidatorContract } from "../utils/contracts";
 
 describe("Safe", () => {
     const setupTests = hre.deployments.createFixture(async ({ deployments }) => {
@@ -211,7 +212,7 @@ describe("Safe", () => {
             ).to.emit(safe, "ExecutionSuccess");
         });
 
-        it("if not msg.sender on-chain approval is required", async () => {
+        it("if not msg.sender onchain approval is required", async () => {
             const {
                 safe,
                 signers: [user1, user2],
@@ -397,7 +398,7 @@ describe("Safe", () => {
             );
         });
 
-        it("if not msg.sender on-chain approval is required", async () => {
+        it("if not msg.sender onchain approval is required", async () => {
             const {
                 safe,
                 signers: [user1, user2],
@@ -510,7 +511,9 @@ describe("Safe", () => {
             } as const;
             const signatures = buildSignatureBytes([selfSignature]);
 
-            await expect(safe["checkSignatures(address,bytes32,bytes)"](user1.address, txHash, signatures)).to.be.revertedWith("GS025");
+            // The inner `isValidSignature` call reverts with GS025, but the parent Safe signature verification logic
+            // uses GS024 error codes for contract signature errors.
+            await expect(safe["checkSignatures(address,bytes32,bytes)"](user1.address, txHash, signatures)).to.be.revertedWith("GS024");
         });
 
         it("should allow for EIP-7702 delegated Safes to sign for themselves [@skip-on-coverage]", async () => {
@@ -611,7 +614,7 @@ describe("Safe", () => {
             await safe["checkSignatures(address,bytes32,bytes)"](hre.ethers.ZeroAddress, dataHash, signatures);
         });
 
-        it("should revert on incorrectly encoded RIP-7212/RIP-7951 signatures", async function () {
+        it("should revert on incorrectly encoded RIP-7212/RIP-7951 signatures [@secp256r1]", async function () {
             await setupTests();
             const safe = await getSafe({
                 owners: [`0x${"42".repeat(20)}`],
@@ -634,6 +637,43 @@ describe("Safe", () => {
             await expect(
                 safe["checkSignatures(address,bytes32,bytes)"](hre.ethers.ZeroAddress, dataHash, missingSignatureData),
             ).to.be.revertedWith("GS027");
+        });
+
+        it("should revert if not signed by owner [@secp256r1]", async function () {
+            await setupTests();
+            const owner = p256.keygen();
+            const ownerPublicKeyCoords = p256.Point.fromBytes(owner.publicKey);
+            const ownerAddress = hre.ethers.getAddress(
+                hre.ethers.dataSlice(
+                    hre.ethers.solidityPackedKeccak256(["uint256", "uint256"], [ownerPublicKeyCoords.x, ownerPublicKeyCoords.y]),
+                    12,
+                ),
+            );
+            const safe = await getSafe({
+                owners: [ownerAddress],
+                threshold: 1,
+            });
+
+            const dataHash = hre.ethers.id("Fusaka!");
+            const otherSigner = p256.keygen();
+            const otherPublicKeyCoords = p256.Point.fromBytes(otherSigner.publicKey);
+            const signature = p256.sign(hre.ethers.getBytes(dataHash), otherSigner.secretKey, { prehash: false });
+            const signatures = hre.ethers.solidityPacked(
+                ["uint256", "uint256", "uint8", "bytes32", "bytes32", "uint256", "uint256"],
+                [
+                    ownerAddress, // the owner public address
+                    65, // the offset in the signature bytes to the rest of the data
+                    2, // v == 2, indicating a secp256r1 signature
+                    signature.subarray(0, 32), // the signature `r` value
+                    signature.subarray(32, 64), // the signature `s` value
+                    otherPublicKeyCoords.x, // the **other signer's** public key `x` coordinate
+                    otherPublicKeyCoords.y, // the **other signer's** public key `y` coordinate
+                ],
+            );
+
+            await expect(safe["checkSignatures(address,bytes32,bytes)"](hre.ethers.ZeroAddress, dataHash, signatures)).to.be.revertedWith(
+                "GS028",
+            );
         });
 
         it("should revert on with invalid RIP-7212/RIP-7951 signatures [@secp256r1]", async function () {
@@ -750,7 +790,7 @@ describe("Safe", () => {
             await expect(safe["checkSignatures(bytes32,bytes,bytes)"](txHash, txHashData, signatures)).to.be.revertedWith("GS026");
         });
 
-        it("if not msg.sender on-chain approval is required", async () => {
+        it("if not msg.sender onchain approval is required", async () => {
             const {
                 safe,
                 signers: [user1, user2],
@@ -921,7 +961,7 @@ describe("Safe", () => {
             );
         });
 
-        it("if not msg.sender on-chain approval is required", async () => {
+        it("if not msg.sender onchain approval is required", async () => {
             const {
                 safe,
                 signers: [user1, user2],
@@ -1058,6 +1098,51 @@ describe("Safe", () => {
 
             await safeConnectUser2["checkNSignatures(address,bytes32,bytes,uint256)"](user1.address, txHash, signatures, 1);
         });
+
+        it("should revert with GS024 if a contract owner's isValidSignature reverts", async () => {
+            const {
+                signers: [user1],
+            } = await setupTests();
+
+            const revertingValidator = await revertingSignatureValidatorContract(user1);
+            const revertingValidatorAddress = await revertingValidator.getAddress();
+
+            const safe = await getSafe({ owners: [revertingValidatorAddress], threshold: 1 });
+            const safeAddress = await safe.getAddress();
+            const tx = buildSafeTransaction({ to: safeAddress, nonce: await safe.nonce() });
+            const txHash = calculateSafeTransactionHash(safeAddress, tx, await chainId());
+
+            const contractSig = buildContractSignature(revertingValidatorAddress, "0x");
+            const signatures = buildSignatureBytes([contractSig]);
+
+            await expect(safe["checkNSignatures(address,bytes32,bytes,uint256)"](AddressZero, txHash, signatures, 1)).to.be.revertedWith(
+                "GS024",
+            );
+        });
+
+        it("should revert with GS024 if a non-owner contract's isValidSignature reverts", async () => {
+            const {
+                signers: [user1, user2],
+            } = await setupTests();
+
+            const revertingValidator = await revertingSignatureValidatorContract(user1);
+            const revertingValidatorAddress = await revertingValidator.getAddress();
+
+            // user2 is the only owner, the reverting contract is NOT an owner.
+            const safe = await getSafe({ owners: [user2.address], threshold: 1 });
+            const safeAddress = await safe.getAddress();
+            const tx = buildSafeTransaction({ to: safeAddress, nonce: await safe.nonce() });
+            const txHash = calculateSafeTransactionHash(safeAddress, tx, await chainId());
+
+            // validateContractSignature is called before the owner-membership check (GS026), so the
+            // revert is caught and surfaced as GS024 rather than bubbling up to the caller.
+            const contractSig = buildContractSignature(revertingValidatorAddress, "0x");
+            const signatures = buildSignatureBytes([contractSig]);
+
+            await expect(safe["checkNSignatures(address,bytes32,bytes,uint256)"](AddressZero, txHash, signatures, 1)).to.be.revertedWith(
+                "GS024",
+            );
+        });
     });
 
     describe("checkNSignatures (legacy)", () => {
@@ -1154,7 +1239,7 @@ describe("Safe", () => {
             await expect(safe["checkNSignatures(bytes32,bytes,bytes,uint256)"](txHash, "0x", signatures, 1)).to.be.revertedWith("GS026");
         });
 
-        it("if not msg.sender on-chain approval is required", async () => {
+        it("if not msg.sender onchain approval is required", async () => {
             const {
                 safe,
                 signers: [user1, user2],
