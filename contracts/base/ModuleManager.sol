@@ -4,7 +4,7 @@ pragma solidity >=0.7.0 <0.9.0;
 import {SelfAuthorized} from "./../common/SelfAuthorized.sol";
 import {IERC165} from "./../interfaces/IERC165.sol";
 import {IModuleManager} from "./../interfaces/IModuleManager.sol";
-import {Enum} from "./../libraries/Enum.sol";
+import {Enum} from "./../interfaces/Enum.sol";
 // solhint-disable-next-line no-unused-import
 import {MODULE_GUARD_STORAGE_SLOT} from "./../libraries/SafeStorage.sol";
 import {Executor} from "./Executor.sol";
@@ -81,7 +81,7 @@ abstract contract ModuleManager is SelfAuthorized, Executor, IModuleManager {
 
     /**
      * @notice Setup function sets the initial storage of the contract.
-     *         Optionally executes a delegate call to another contract to setup the modules.
+     *         Optionally executes a delegate call to another contract to set up the modules.
      * @param to Optional destination address of the call to execute.
      * @param data Optional data of call to execute.
      */
@@ -125,7 +125,7 @@ abstract contract ModuleManager is SelfAuthorized, Executor, IModuleManager {
      * @notice Runs post-execution checks for module transactions if a guard is enabled.
      * @dev Emits event based on module transaction success.
      * @param guard Guard to be used for checking.
-     * @param guardHash Hash returned from the guard during pre execution check.
+     * @param guardHash Hash returned from the guard during the pre-execution check.
      * @param success Boolean flag indicating if the call succeeded.
      */
     function postModuleExecution(address guard, bytes32 guardHash, bool success) internal {
