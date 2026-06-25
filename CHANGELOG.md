@@ -6,7 +6,13 @@ This changelog only contains changes starting from version 1.3.0
 
 ## Changes
 
-None.
+### General
+
+#### Do not propagate contract signature validation reverts
+
+Previously, a reverting `isValidSignature` call during contract signature validation in `checkNSignatures` would bubble up the revert to the caller. This allowed an attacker-controlled `owner` address to supply arbitrary revert data. The `checkNSignatures` call now reverts with a `GS024` error in case of a revert (the same error for an invalid signature).
+
+**Breaking change**: The return data from `isValidSignature` is now checked strictly. Previously, Solidity's ABI decoder would accept responses with dirty lower bits and additional trailing bytes. The new low-level call requires exactly 32 bytes of return data whose first 4 bytes equal `EIP1271_MAGIC_VALUE` (`0x1626ba7e`) with the remaining 28 bytes zero-padded.
 
 # Version 1.5.0
 
@@ -336,7 +342,7 @@ This method should enable the creation of proxies that should exist only on one 
 
 #### Remove the `calculateProxyAddress` method
 
-The method uses the revert approach to return data, which only works well with some nodes, as they all return messages differently. Hence, we removed it, and the off-chain CREATE2 calculation is still possible.
+The method uses the revert approach to return data, which only works well with some nodes, as they all return messages differently. Hence, we removed it, and the offchain CREATE2 calculation is still possible.
 
 #### Remove the `proxyRuntimeCode` method
 
