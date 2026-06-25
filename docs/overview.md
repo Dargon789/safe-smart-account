@@ -20,7 +20,7 @@ The Safe Protocol is a non-custodial set of smart contracts that allows users to
 - The implementation contract has self-authorised (can be called by the Safe account itself) methods to update the owner structure or policies of the Safe account.
 
 **Signing a message**
-The message can be signed two ways on-chain and off-chain.
+The message can be signed in two ways: on-chain and off-chain.
 
 - On-chain signing:
     - The user generates a Safe message hash using the EIP-712 typed structured data hashing scheme.
