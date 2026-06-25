@@ -20,7 +20,7 @@ The Safe Protocol is a non-custodial set of smart contracts that allows users to
 - The implementation contract has self-authorised (can be called by the Safe account itself) methods to update the owner structure or policies of the Safe account.
 
 **Signing a message**
-The message can be signed in two ways: on-chain and off-chain.
+The message can be signed two ways on-chain and off-chain.
 
 - On-chain signing:
     - The user generates a Safe message hash using the EIP-712 typed structured data hashing scheme.
@@ -37,7 +37,7 @@ The message can be signed in two ways: on-chain and off-chain.
 
 Modules add additional functionalities to the Safe Smart Account contracts. They are smart contracts that implement the Safe’s functionality while separating module logic from the Safe’s core contract.
 
-A basic Safe does not require any modules. Adding and removing a module requires confirmation from all owners. Events are emitted whenever a module is added or removed and also whenever a module transaction succeeds or fails.
+A basic Safe does not require any modules. Adding and removing a module requires confirmation from all owners. Events are emitted whenever a module is added or removed and also whenever a module transaction is successful or failed.
 
 > ⚠️ WARNING: Modules are a security risk since they can execute arbitrary transactions,
 > so only trusted and audited modules should be added to a Safe. A malicious module can completely takeover a Safe
@@ -125,7 +125,7 @@ The linked list head and tail are the 0x1 address. The head and tail are never r
 
 #### Module Management
 
-Modules are managed in the `ModuleManager` contract. It uses a linked list to store the modules because the EVM bytecode `solc` generates for a dynamic array is not the most efficient.
+Owners are managed in the `ModuleManager` contract. It uses a linked list to store the modules because the EVM bytecode `solc` generates for a dynamic array is not the most efficient.
 
 The linked list head and tail are the 0x1 address. The head and tail are never removed from the list. The head and tail are never modules.
 
