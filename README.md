@@ -51,7 +51,7 @@ To add support for a new network follow the steps of the `Deploy` section and cr
 
 > **Current version:** The latest release is [v1.5.0](https://github.com/safe-global/safe-smart-account/tree/v1.5.0) on the commit [dc437e8](https://github.com/safe-global/safe-smart-account/commit/dc437e8fba8b4805d76bcbd1c668c9fd3d1e83be)
 
-This will deploy the contracts deterministically and verify the contracts on etherscan using [Solidity 0.7.6](https://github.com/ethereum/solidity/releases/tag/v0.7.6) by default.
+This will deploy the contracts deterministically and verify the contracts on Etherscan using [Solidity 0.7.6](https://github.com/ethereum/solidity/releases/tag/v0.7.6) by default.
 
 Preparation:
 
