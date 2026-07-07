@@ -80,7 +80,7 @@ E.g. to deploy the Safe contract suite on that network you would run `npm run de
 
 The resulting addresses should be the same on all networks.
 
-Note: Address will vary if contract code is changed or a different Solidity version is used.
+Note: Addresses will vary if contract code is changed or a different Solidity version is used.
 
 #### Replay protection ([EIP-155](https://eips.ethereum.org/EIPS/eip-155))
 
