@@ -4,7 +4,7 @@ The Safe supports different types of signatures. All signatures are combined int
 
 ### Encoding
 
-Each signature has a constant length of 65 bytes. If more data is necessary, it can be appended to the end of concatenated constant data of all signatures. The position is encoded into the constant length data.
+Each signature has a constant length of 65 bytes. If more data is necessary it can be appended to the end of concatenated constant data of all signatures. The position is encoded into the constant length data.
 
 Constant part per signature: `{(max) 64-bytes signature data}{1-byte signature type}`
 
@@ -32,7 +32,7 @@ To be able to use `eth_sign` we need to take the parameters `r`, `s` and `v` fro
 
 `{32-bytes r}{32-bytes s}{1-byte v}`
 
-`r`, `s` and `v` are the required parts of the ECDSA signature to recover the signer. `v` will be subtracted by `4` to calculate the signature.
+`r`, `s` and `v`are the required parts of the ECDSA signature to recover the signer. `v` will be subtracted by `4` to calculate the signature.
 
 #### Contract Signature \(EIP-1271\)
 
@@ -42,7 +42,7 @@ To be able to use `eth_sign` we need to take the parameters `r`, `s` and `v` fro
 
 `{32-bytes signature verifier}{32-bytes data position}{1-byte signature type}`
 
-**Signature verifier** - Padded address of the contract that implements the EIP-1271 interface to verify the signature
+**Signature verifier** - Padded address of the contract that implements the EIP 1271 interface to verify the signature
 
 **Data position** - Position of the start of the signature data \(offset relative to the beginning of the signature data\)
 
@@ -54,7 +54,7 @@ To be able to use `eth_sign` we need to take the parameters `r`, `s` and `v` fro
 
 **Signature data** - Signature bytes that are verified by the signature verifier
 
-The method `signMessage` can be used to mark a message as signed onchain.
+The method `signMessage` can be used to mark a message as signed on-chain.
 
 #### Pre-Validated Signatures
 
