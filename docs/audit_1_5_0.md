@@ -11,7 +11,7 @@ Certora
 
 The final audit was performed on commit [1c8b24a0a438e8c2cd089a9d830d1688a47a28d5](https://github.com/safe-global/safe-smart-account/tree/1c8b24a0a438e8c2cd089a9d830d1688a47a28d5).
 
-There has been few bugfixes and gas optimization based changes.
+There have been a few bugfixes and gas-optimization-based changes.
 
 Ackee
 
