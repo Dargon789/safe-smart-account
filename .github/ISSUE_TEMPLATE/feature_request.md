@@ -14,7 +14,7 @@ about: Suggest an idea or feature request for the Safe smart contracts project
 
 ## Context / issue
 
-If your feature request is related to a problem, please add a clear and concise description of the issue.
+In case your feature request is related to a problem, please add a clear and concise description of what the issue is.
 
 ## Proposed solution
 
