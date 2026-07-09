@@ -42,7 +42,7 @@ If the Safe transaction fails (e.g. because of a revert in the target contract o
 
 This essentially means if you set a `safeTxGas` that is too low, your transaction might fail with "Out of Gas" and it is not possible to retry the same transaction, therefore it is important to set a correct `safeTxGas` value.
 
-Most wallets will estimate an Ethereum transaction by checking with what gas limit the transaction does not revert. As the Safe Smart Account contracts will "catch" the internal revert, most wallets will estimate the gas limit to the minimum value required to satisfy the `safeTxGas`. This makes it very important to correctly estimate the `safeTxGas` value.
+Most wallets will estimate Ethereum transaction by checking with what gas limit the transaction does not revert. As the Safe Smart Account contracts will "catch" the internal revert, most wallets will estimate the gas limit to the minimum value required to satisfy the `safeTxGas`. This makes it very important to correctly estimate the `safeTxGas` value.
 
 To make it easier to set the `safeTxGas` value a change has been made with the 1.3.0 version of the Safe Smart Account contracts:
 
@@ -65,7 +65,7 @@ if (!success && safeTxGas == 0 && gasPrice == 0) {
 
 As this also means that the `nonce` for this transaction is **not** used, **it is possible to retry the transaction in the future**.
 
-This logic also improves how the default Ethereum gas estimation works for Safe transaction executions. As the Safe contract reverts if the internal Safe transaction fails (e.g. because of a revert in the target contract or out of gas) the wallet will propose a gas limit high enough to ensure that the internal Safe transaction is successful or the wallet will display an error that the gas limit for the transaction could not be estimated.
+This logic also improves how the default Ethereum gas estimation works for Safe transaction executions. As the Safe contract reverts if the internal Safe transactions fails (e.g. because of a revert in the target contract or out of gas) the Wallet will propose a gas limit high enough to ensure that internal Safe transaction is successful or the wallet will display an error that the gas limit for the transaction could not be estimated.
 
 It is potentially dangerous to have a signed, but unexecuted, Safe transaction sitting around. To cancel such a transaction it is necessary to execute another Safe transaction with the same `nonce` (e.g. a Safe transaction to the Safe itself with `value = 0`, `data = '0x'` and `operation = 0`).
 
