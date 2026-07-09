@@ -329,6 +329,9 @@ describe("OwnerManager", () => {
             const ownersAfter = await safe.getOwners();
             const thresholdAfter = await safe.getThreshold();
 
+            // Ensure swap preserves owner count
+            expect(ownersAfter.length).to.equal(ownersBefore.length);
+
             expect(ownersAfter).to.not.include(user1.address);
             expect(ownersAfter).to.include(safeAddress);
             expect(thresholdAfter).to.equal(thresholdBefore);
