@@ -56,7 +56,7 @@ abstract contract OwnerManager is EIP7702, SelfAuthorized, IOwnerManager {
         uint256 ownersLength = _owners.length;
         for (uint256 i = 0; i < ownersLength; ++i) {
             address owner = _owners[i];
-            // We need to check that whether or not the owner can be added before changing state to
+            // We need to check whether the owner can be added before changing state to
             // work with the current ownership formal verification specification. This does mean
             // that we need to additionally check to prevent consecutive owners in `_owners` with
             // the same address to properly prevent duplicates.
