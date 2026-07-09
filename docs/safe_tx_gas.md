@@ -65,7 +65,7 @@ if (!success && safeTxGas == 0 && gasPrice == 0) {
 
 As this also means that the `nonce` for this transaction is **not** used, **it is possible to retry the transaction in the future**.
 
-This logic also improves how the default Ethereum gas estimation works for Safe transaction executions. As the Safe contract reverts if the internal Safe transactions fails (e.g. because of a revert in the target contract or out of gas) the Wallet will propose a gas limit high enough to ensure that internal Safe transaction is successful or the wallet will display an error that the gas limit for the transaction could not be estimated.
+This logic also improves how the default Ethereum gas estimation works for Safe transaction executions. As the Safe contract reverts if the internal Safe transaction fails (e.g. because of a revert in the target contract or out of gas) the wallet will propose a gas limit high enough to ensure that the internal Safe transaction is successful or the wallet will display an error that the gas limit for the transaction could not be estimated.
 
 It is potentially dangerous to have a signed, but unexecuted, Safe transaction sitting around. To cancel such a transaction it is necessary to execute another Safe transaction with the same `nonce` (e.g. a Safe transaction to the Safe itself with `value = 0`, `data = '0x'` and `operation = 0`).
 
