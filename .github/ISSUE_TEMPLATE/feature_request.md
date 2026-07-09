@@ -1,9 +1,6 @@
 ---
 name: Feature request
 about: Suggest an idea or feature request for the Safe smart contracts project
-title: ''
-labels: ''
-assignees: ''
 
 ---
 
