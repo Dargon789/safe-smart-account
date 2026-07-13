@@ -49,6 +49,32 @@ yarn hardhat --network <network> etherscan-verify
 yarn hardhat --network <network> local-verify
 ```
 
+#### zkSync Network
+
+In order to test and deploy locally to zkSync, you need to run zkSync local-node:
+
+Download the dockerized project with the following command:
+```bash
+git clone https://github.com/matter-labs/local-setup.git
+```
+
+To run zkSync Era locally, run the start.sh script
+```bash
+cd local-setup
+./start.sh
+```
+> Note: Wait about 10 minutes for node to startup
+
+To compile safe-contracts for zkSync run
+```bash
+yarn build:zk
+```
+
+To test safe-contracts with local zkSync node run
+```bash
+yarn test:zk
+```
+
 #### Custom Networks
 
 It is possible to use the `NODE_URL` env var to connect to any EVM based network via an RPC endpoint. This connection then can be used with the `custom` network.
@@ -58,6 +84,14 @@ E.g. to deploy the Safe contract suite on that network you would run `yarn deplo
 The resulting addresses should be on all networks the same.
 
 Note: Address will vary if contract code is changed or a different Solidity version is used.
+
+#### Replay protection (EIP-155)
+
+Some networks require replay protection. This is not possible with the default deployment process as it relies on a presigned transaction without replay protection (see https://github.com/Arachnid/deterministic-deployment-proxy). 
+
+It is possible to enable deployment via a different determinisitic deployment proxy (https://github.com/gnosis/safe-singleton-factory). To enable this the `CUSTOM_DETERMINISTIC_DEPLOYMENT` env var has to be set to `true` (see `.env.sample`). To make sure that the latest version of this package is install, make sure to run `yarn add @gnosis.pm/safe-singleton-factory` before deployment.
+
+Note: This will result in different addresses compared to the default deployment process.
 
 ### Verify contract
 
