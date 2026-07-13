@@ -317,8 +317,21 @@ describe("OwnerManager", () => {
             const safe = await getEip7702Safe(authority, { owners: [user1.address] });
             const safeAddress = await safe.getAddress();
 
-            await expect(executeContractCallWithSigners(safe, safe, "swapOwner", [AddressOne, user1.address, safeAddress], [user1])).to.not
-                .be.reverted;
+            const ownersBefore = await safe.getOwners();
+            const thresholdBefore = await safe.getThreshold();
+
+            // Sanity checks on initial state
+            expect(ownersBefore).to.include(user1.address);
+            expect(ownersBefore).to.not.include(safeAddress);
+
+            await executeContractCallWithSigners(safe, safe, "swapOwner", [AddressOne, user1.address, safeAddress], [user1]);
+
+            const ownersAfter = await safe.getOwners();
+            const thresholdAfter = await safe.getThreshold();
+
+            expect(ownersAfter).to.not.include(user1.address);
+            expect(ownersAfter).to.include(safeAddress);
+            expect(thresholdAfter).to.equal(thresholdBefore);
         });
 
         it("can not swap in sentinel", async () => {
