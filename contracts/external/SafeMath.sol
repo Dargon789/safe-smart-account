@@ -1,66 +1,62 @@
-pragma solidity >=0.5.0 <0.7.0;
+// SPDX-License-Identifier: LGPL-3.0-only
+pragma solidity >=0.7.0 <0.9.0;
 
 /**
- * @title SafeMath
- * @dev Math operations with safety checks that revert on error
- * TODO: remove once open zeppelin update to solc 0.5.0
+ * @title Safe Math
+ * @notice Math operations with safety checks that revert on error (overflow/underflow).
  */
 library SafeMath {
+    /**
+     * @notice Multiplies two numbers, reverts on overflow.
+     * @param a First number.
+     * @param b Second number.
+     * @return Product of `a` and `b`.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not to be zero,
+        // but the benefit is lost if 'b' is also tested.
+        // See: <https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522>
+        if (a == 0) {
+            return 0;
+        }
 
-  /**
-  * @dev Multiplies two numbers, reverts on overflow.
-  */
-  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-    // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-    // benefit is lost if 'b' is also tested.
-    // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
-    if (a == 0) {
-      return 0;
+        uint256 c = a * b;
+        require(c / a == b);
+
+        return c;
     }
 
-    uint256 c = a * b;
-    require(c / a == b);
+    /**
+     * @notice Subtracts two numbers, reverts on overflow (i.e. if subtrahend is greater than minuend).
+     * @param a First number.
+     * @param b Second number.
+     * @return Difference of `a` and `b`.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a);
+        return a - b;
+    }
 
-    return c;
-  }
+    /**
+     * @notice Adds two numbers, reverts on overflow.
+     * @param a First number.
+     * @param b Second number.
+     * @return Sum of `a` and `b`.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a);
 
-  /**
-  * @dev Integer division of two numbers truncating the quotient, reverts on division by zero.
-  */
-  function div(uint256 a, uint256 b) internal pure returns (uint256) {
-    require(b > 0); // Solidity only automatically asserts when dividing by 0
-    uint256 c = a / b;
-    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+        return c;
+    }
 
-    return c;
-  }
-
-  /**
-  * @dev Subtracts two numbers, reverts on overflow (i.e. if subtrahend is greater than minuend).
-  */
-  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-    require(b <= a);
-    uint256 c = a - b;
-
-    return c;
-  }
-
-  /**
-  * @dev Adds two numbers, reverts on overflow.
-  */
-  function add(uint256 a, uint256 b) internal pure returns (uint256) {
-    uint256 c = a + b;
-    require(c >= a);
-
-    return c;
-  }
-
-  /**
-  * @dev Divides two numbers and returns the remainder (unsigned integer modulo),
-  * reverts when dividing by zero.
-  */
-  function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-    require(b != 0);
-    return a % b;
-  }
+    /**
+     * @notice Returns the largest of two numbers.
+     * @param a First number.
+     * @param b Second number.
+     * @return Largest of `a` and `b`.
+     */
+    function max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a >= b ? a : b;
+    }
 }

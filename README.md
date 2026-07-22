@@ -1,118 +1,129 @@
-Gnosis Safe Contracts
-=====================
+# Safe Smart Account
 
-[![npm version](https://badge.fury.io/js/%40gnosis.pm%2Fsafe-contracts.svg)](https://badge.fury.io/js/%40gnosis.pm%2Fsafe-contracts)
-[![Build Status](https://travis-ci.org/gnosis/safe-contracts.svg?branch=development)](https://travis-ci.org/gnosis/safe-contracts)
+[![npm version](https://badge.fury.io/js/%40safe-global%2Fsafe-smart-account.svg)](https://badge.fury.io/js/%40safe-global%2Fsafe-smart-account)
+[![Build Status](https://github.com/safe-global/safe-smart-account/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/safe-global/safe-smart-account/actions)
+[![Coverage Status](https://coveralls.io/repos/github/safe-global/safe-smart-account/badge.svg?branch=main)](https://coveralls.io/github/safe-global/safe-smart-account)
 
-Install
--------
+> [!WARNING]
+> **This branch contains changes that are under development.** To use the latest audited version, make sure to use the correct commit. The tagged versions that are used by the Safe team can be found in the [releases](https://github.com/safe-global/safe-smart-account/releases).
+
+## Usage
+
 ### Install requirements with npm:
 
 ```bash
-npm install
+npm i
 ```
 
-### Run all tests (requires Node version >=7 for `async/await`):
+### Testing
+
+To run the tests:
 
 ```bash
-npx truffle compile
-npx truffle test
+npm run build
+npm run test
 ```
+
+Optionally, if you want to run the ERC-4337 compatibility test, it uses a live bundler and node, so it contains some prerequisites:
+
+1. Define the environment variables:
+
+```
+ERC4337_TEST_BUNDLER_URL=
+ERC4337_TEST_NODE_URL=
+ERC4337_TEST_SINGLETON_ADDRESS=
+ERC4337_TEST_SAFE_FACTORY_ADDRESS=
+MNEMONIC=
+```
+
+2. Pre-fund the executor account derived from the mnemonic with some Native Token to cover the deployment of an ERC-4337 module and the pre-fund of the Safe for the test operation.
+
+### Deployments
+
+A collection of the different Safe contract deployments and their addresses can be found in the [Safe deployments](https://github.com/safe-global/safe-deployments) repository.
+
+To add support for a new network follow the steps of the `Deploy` section and create a PR in the [Safe deployments](https://github.com/safe-global/safe-deployments) repository.
 
 ### Deploy
 
-Some contracts require that the Solidity compile target is at least `petersburg` (e.g. ProxyFactory and MultiSend). This is default since [Solidity 0.5.5](https://github.com/ethereum/solidity/releases/tag/v0.5.5).
+> [!WARNING]
+> **Make sure to use the correct commit when deploying the contracts.** Any change (even comments) within the contract files will result in different addresses. The tagged versions that are used by the Safe team can be found in the [releases](https://github.com/safe-global/safe-smart-account/releases).
 
-Note: The formal verification was performed using the contract compiled with solcjs 0.5.0.
+> **Current version:** The latest release is [v1.5.0](https://github.com/safe-global/safe-smart-account/tree/v1.5.0) on the commit [dc437e8](https://github.com/safe-global/safe-smart-account/commit/dc437e8fba8b4805d76bcbd1c668c9fd3d1e83be)
+
+This will deploy the contracts deterministically and verify the contracts on Etherscan using [Solidity 0.7.6](https://github.com/ethereum/solidity/releases/tag/v0.7.6) by default.
 
 Preparation:
-- Set `INFURA_TOKEN` in `.env`
-- Set `NETWORK` in `.env`
-- Run `npx truffle compile`
 
-OpenZeppelin SDK:
-- Make sure that @openzeppelin/cli is version 2.5 (`npx oz --version`)
-- Make sure that all dependencies use solcjs >0.5.0
-- Set correct version in `package.json`
-- Set `MNEMONIC` in `.env` to current oz package owner (last deployer normally)
-- Optional: if a new deployer account is used
-  - Check that a gloabl versionb of truffle 5 is installed (`truffle version`)
-  - Run `truffle exec scripts/change_oz_owner.js --network=<network> --newOwner="<address>"` to enable new deployer
-  - Set `MNEMONIC` in `.env` to new oz package owner
-- Run `npm run deploy-oz`
-- Once deployed on all networks run `npx oz --freeze <network>` for each network
-
-Truffle:
 - Set `MNEMONIC` in `.env`
+- Set `INFURA_KEY` in `.env`
 
 ```bash
-npx truffle deploy
+npm run deploy-all <network>
 ```
 
-Verify Contracts:
-- requires installed solc (>0.5.0)
-```bash
-virtualenv env -p python3
-. env/bin/activate
-pip install solidity-flattener
-mkdir build/flattened_contracts
-solidity_flattener contracts/GnosisSafe.sol --output build/flattened_contracts/GnosisSafe.sol
-solidity_flattener contracts/libraries/CreateAndAddModules.sol --output build/flattened_contracts/CreateAndAddModules.sol --solc-paths="/=/"
-solidity_flattener contracts/libraries/CreateCall.sol --output build/flattened_contracts/CreateCall.sol --solc-paths="/=/"
-solidity_flattener contracts/libraries/MultiSend.sol --output build/flattened_contracts/MultiSend.sol --solc-paths="/=/"
-solidity_flattener contracts/handler/DefaultCallbackHandler.sol --output build/flattened_contracts/DefaultCallbackHandler.sol --solc-paths="/=/"
-solidity_flattener contracts/modules/DailyLimitModule.sol --output build/flattened_contracts/DailyLimitModule.sol --solc-paths="/=/"
-solidity_flattener contracts/modules/SocialRecoveryModule.sol --output build/flattened_contracts/SocialRecoveryModule.sol --solc-paths="/=/"
-solidity_flattener contracts/modules/StateChannelModule.sol --output build/flattened_contracts/StateChannelModule.sol --solc-paths="/=/"
-solidity_flattener contracts/modules/WhitelistModule.sol --output build/flattened_contracts/WhitelistModule.sol --solc-paths="/=/"
-solidity_flattener contracts/proxies/ProxyFactory.sol --output build/flattened_contracts/ProxyFactory.sol
-find build/flattened_contracts -name '*.sol' -exec sed -i '' 's/pragma solidity ^0.4.13;/pragma solidity >=0.5.0 <0.7.0;/g' {} \;
-```
-
-Using with OpenZeppelin SDK
----------------------------
-
-You can create a gnosis safe upgradeable instance using [OpenZeppelin SDK](https://docs.openzeppelin.com/sdk/2.5) by linking to the provided [EVM package](https://docs.openzeppelin.com/sdk/2.5/linking). This will use the master copy already deployed to mainnet, kovan, or rinkeby, reducing gas deployment costs.
-
-To create an instance using OpenZeppelin SDK:
+This will perform the following steps
 
 ```bash
-$ npm install -g @openzeppelin/sdk
-$ oz init YourProject
-$ oz link @gnosis.pm/safe-contracts
-$ oz push --network rinkeby
-> Connecting to dependency @gnosis.pm/safe-contracts 1.0.0
-$ oz create @gnosis.pm//GnosisSafe --init setup --args "[$ADDRESS1,$ADDRESS2,$ADDRESS3],2,0x0000000000000000000000000000000000000000,\"\"" --network rinkeby --from $SENDER
-> Instance created at SAFE_ADDRESS
+npm run build
+npx hardhat --network <network> deploy
+npx hardhat --network <network> sourcify
+npx hardhat --network <network> etherscan-verify
+npx hardhat --network <network> local-verify
 ```
 
-It is suggested to [use a non-default address](https://docs.zeppelinos.org/docs/pattern.html#transparent-proxies-and-function-clashes) as `$SENDER`.
+#### Custom Networks
 
-> Note: When using the contracts via ZeppelinOS make sure to choose an appropriate Proxy admin. An upgradable proxy enables the user to update the master copy (aka implementation). The default upgradable proxy is managed by an admin address. This admin address is independent from the owners of the Safe. Therefore it would be possible for the admin to change the master copy without the approval of any owner, thus allowing him to gain full access to the Safe.
+It is possible to use the `NODE_URL` env var to connect to any EVM-based network via an RPC endpoint. This connection can then be used with the `custom` network.
 
-Documentation
--------------
-- [ReadTheDocs](http://gnosis-safe.readthedocs.io/en/latest/)
-- [Coding guidlines](docs/guidelines.md)
+E.g. to deploy the Safe contract suite on that network you would run `npm run deploy-all custom`.
 
-Audits/ Formal Verification
----------
+The resulting addresses should be the same on all networks.
+
+Note: Addresses will vary if contract code is changed or a different Solidity version is used.
+
+#### Replay protection ([EIP-155](https://eips.ethereum.org/EIPS/eip-155))
+
+Some networks require replay protection, making it incompatible with the default deployment process as it relies on a presigned transaction without replay protection (see <https://github.com/Arachnid/deterministic-deployment-proxy>).
+
+Safe Smart Account contracts use a different deterministic deployment proxy (<https://github.com/safe-global/safe-singleton-factory>). To make sure that the latest version of this package is installed, run `npm i --save-dev @safe-global/safe-singleton-factory` before deployment. For more information, including deploying the factory to a new network, please refer to the factory repository.
+
+Note: This will result in different addresses compared to hardhat's default deterministic deployment process.
+
+### Verify contract
+
+This command will use the deployment artifacts to compile the contracts and compare them to the onchain code
+
+```bash
+npx hardhat --network <network> local-verify
+```
+
+This command will upload the contract source to Etherscan
+
+```bash
+npx hardhat --network <network> etherscan-verify
+```
+
+## Documentation
+
+- [Safe developer portal](http://docs.safe.global)
+- [Error codes](docs/error_codes.md)
+- [Coding guidelines](docs/guidelines.md)
+
+## Audits and Formal Verification
+
+- [for Version 1.5.0 by Certora & Ackee](docs/audit_1_5_0.md)
+- [for Version 1.4.0/1.4.1 by Ackee Blockchain](docs/audit_1_4_0.md)
+- [for Version 1.3.0 by G0 Group](docs/audit_1_3_0.md)
+- [for Version 1.2.0 by G0 Group](docs/audit_1_2_0.md)
 - [for Version 1.1.1 by G0 Group](docs/audit_1_1_1.md)
 - [for Version 1.0.0 by Runtime Verification](docs/rv_1_0_0.md)
-- [for Version 0.2.0 by Alexey Akhunov](docs/alexey_audit.md)
+- [for Version 0.0.1 by Alexey Akhunov](docs/alexey_audit.md)
 
-Security and Liability
-----------------------
+## Security and Liability
+
 All contracts are WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-License
--------
-All smart contracts are released under LGPL v.3.
+## License
 
-Contributors
-------------
-- Stefan George ([Georgi87](https://github.com/Georgi87))
-- Richard Meissner ([rmeissner](https://github.com/rmeissner))
-- Christian Lundkvist ([christianlundkvist](https://github.com/christianlundkvist))
-- Nick Dodson ([SilentCicero](https://github.com/SilentCicero))
-- Gonçalo Sá ([GNSPS](https://github.com/GNSPS))
+All smart contracts are released under LGPL-3.0

@@ -1,11 +1,28 @@
-pragma solidity >=0.5.0 <0.7.0;
+// SPDX-License-Identifier: LGPL-3.0-only
+pragma solidity >=0.7.0 <0.9.0;
 
+import {ErrorMessage} from "../common/ErrorMessage.sol";
 
-/// @title SelfAuthorized - authorizes current contract to perform actions
-/// @author Richard Meissner - <richard@gnosis.pm>
-contract SelfAuthorized {
+/**
+ * @title Self Authorized
+ * @notice Authorizes the current contract to perform actions on itself.
+ * @author Richard Meissner - @rmeissner
+ */
+abstract contract SelfAuthorized is ErrorMessage {
+    /**
+     * @dev Ensure that the `msg.sender` is the current contract.
+     */
+    function requireSelfCall() private view {
+        if (msg.sender != address(this)) revertWithError("GS031");
+    }
+
+    /**
+     * @notice Ensure that a function is authorized.
+     * @dev This modifier authorizes calls by ensuring that the contract called itself.
+     */
     modifier authorized() {
-        require(msg.sender == address(this), "Method can only be called from this contract");
+        // Modifiers are copied around during compilation. This is a function call to minimise the bytecode size.
+        requireSelfCall();
         _;
     }
 }

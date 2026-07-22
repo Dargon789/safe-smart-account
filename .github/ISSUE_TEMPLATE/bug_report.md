@@ -7,14 +7,14 @@ about: Bug report about the Safe smart contracts
 ## Prerequisites
 
 - First, many thanks for taking part in the community and helping us improve. We appreciate that a lot.
-- Support questions are better asked in our Gitter chat: https://gitter.im/gnosis/Safe
+- Support questions are better asked in our Discord: https://chat.safe.global
 - Please ensure the issue isn't already reported.
 
 *Please delete the above section and the instructions in the sections below before submitting*
 
 ## Description
 
-Please describe considely the bug you have found, and what you expect instead.
+Please describe concisely the bug you have found, and what you expect instead.
 
 ## Environment
 
