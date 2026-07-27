@@ -21,7 +21,7 @@ abstract contract SelfAuthorized is ErrorMessage {
      * @dev This modifier authorizes calls by ensuring that the contract called itself.
      */
     modifier authorized() {
-        // Modifiers are copied around during compilation. This is a function call to minimized the bytecode size.
+        // Modifiers are copied around during compilation. This is a function call to minimize the bytecode size.
         requireSelfCall();
         _;
     }
