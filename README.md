@@ -5,7 +5,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/safe-global/safe-smart-account/badge.svg?branch=main)](https://coveralls.io/github/safe-global/safe-smart-account)
 
 > [!WARNING]
-> **This branch contains changes that are under development.** To use the latest audited version, make sure to use the correct commit. The tagged versions that are used by the Safe team can be found in the [releases](https://github.com/safe-global/safe-smart-account/releases).
+> **This branch contains changes that are under development** To use the latest audited version make sure to use the correct commit. The tagged versions that are used by the Safe team can be found in the [releases](https://github.com/safe-global/safe-smart-account/releases).
 
 ## Usage
 
@@ -74,7 +74,7 @@ npx hardhat --network <network> local-verify
 
 #### Custom Networks
 
-It is possible to use the `NODE_URL` env var to connect to any EVM-based network via an RPC endpoint. This connection can then be used with the `custom` network.
+It is possible to use the `NODE_URL` env var to connect to any EVM based network via an RPC endpoint. This connection then can be used with the `custom` network.
 
 E.g. to deploy the Safe contract suite on that network you would run `npm run deploy-all custom`.
 
